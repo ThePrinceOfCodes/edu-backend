@@ -1,0 +1,1 @@
+{"version":3,"file":"globalRateLimiter.js","sourceRoot":"","sources":["../../../src/modules/utils/globalRateLimiter.ts"],"names":[],"mappings":";;;;;AAAA,4EAA0C;AAE1C,MAAM,WAAW,GAAG,IAAA,4BAAS,EAAC;IAC5B,QAAQ,EAAE,EAAE,GAAG,EAAE,GAAG,IAAI;IACxB,GAAG,EAAE,CAAC;IACN,sBAAsB,EAAE,IAAI;CAC7B,CAAC,CAAA;AAEF,kBAAe,WAAW,CAAA"}

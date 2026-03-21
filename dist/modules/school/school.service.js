@@ -1,0 +1,137 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteSchoolById = exports.updateSchoolById = exports.getSchoolById = exports.querySchools = exports.createSchool = void 0;
+const http_status_1 = __importDefault(require("http-status"));
+const auth_1 = require("../auth");
+const errors_1 = require("../errors");
+const users_1 = require("../users");
+const school_board_1 = require("../school-board");
+const school_model_1 = __importDefault(require("./school.model"));
+const buildSchoolAccessFilter = (actor) => {
+    if (actor.accountType === 'internal') {
+        return {};
+    }
+    if (actor.role === 'school-board-admin') {
+        if (!actor.schoolBoardId) {
+            throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
+        }
+        return { schoolBoard: actor.schoolBoardId };
+    }
+    if (actor.role === 'school-admin') {
+        if (!actor.schoolId) {
+            throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School context is missing for this user');
+        }
+        return { _id: actor.schoolId };
+    }
+    throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Only school board admin or school admin can access schools');
+};
+const resolveSchoolBoardIdForCreate = (payloadSchoolBoard, actor) => {
+    if (actor.accountType === 'internal') {
+        return payloadSchoolBoard;
+    }
+    if (!actor.schoolBoardId) {
+        throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
+    }
+    if (payloadSchoolBoard && payloadSchoolBoard !== actor.schoolBoardId) {
+        throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot create a school outside your school board');
+    }
+    return actor.schoolBoardId;
+};
+const resolveSchoolAdminUser = async (schoolBoardId, payload) => {
+    if (payload.adminUserId && payload.admin) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Provide either adminUserId or admin payload, not both');
+    }
+    if (payload.adminUserId) {
+        const adminUser = await users_1.userService.getUserById(payload.adminUserId);
+        if (!adminUser) {
+            throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Assigned school admin user not found');
+        }
+        adminUser.accountType = 'client';
+        adminUser.role = 'school-admin';
+        adminUser.schoolBoardId = schoolBoardId;
+        await adminUser.save();
+        return adminUser;
+    }
+    if (!payload.admin) {
+        return null;
+    }
+    if (await auth_1.Auth.isEmailTaken(payload.admin.email)) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School admin email already taken');
+    }
+    const adminUser = await users_1.userService.createUser(Object.assign({ name: payload.admin.name, email: payload.admin.email, accountType: 'client', role: 'school-admin', schoolBoardId, isVerified: true }, (payload.admin.phoneNumber ? { phoneNumber: payload.admin.phoneNumber } : {})));
+    await auth_1.authService.createAuth({
+        user: adminUser.id,
+        email: payload.admin.email,
+        password: payload.admin.password,
+        provider: 'email',
+    });
+    return adminUser;
+};
+const createSchool = async (schoolBody, actor) => {
+    var _a;
+    const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
+    const schoolBoard = await school_board_1.SchoolBoard.findById(schoolBoardId);
+    if (!schoolBoard) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School board not found');
+    }
+    const existingSchool = await school_model_1.default.findOne({ name: schoolBody.name, schoolBoard: schoolBoardId });
+    if (existingSchool) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School already exists in this school board');
+    }
+    const adminUser = await resolveSchoolAdminUser(schoolBoardId, schoolBody);
+    const school = await school_model_1.default.create({
+        name: schoolBody.name,
+        schoolBoard: schoolBoardId,
+        adminUser: (_a = adminUser === null || adminUser === void 0 ? void 0 : adminUser.id) !== null && _a !== void 0 ? _a : null,
+        address: schoolBody.address,
+        status: schoolBody.status,
+    });
+    if (adminUser) {
+        adminUser.schoolId = school.id;
+        await adminUser.save();
+    }
+    return school;
+};
+exports.createSchool = createSchool;
+const querySchools = async (filter, options, actor) => {
+    const accessFilter = buildSchoolAccessFilter(actor);
+    return school_model_1.default.paginate(Object.assign(Object.assign({}, filter), accessFilter), options);
+};
+exports.querySchools = querySchools;
+const getSchoolById = async (schoolId, actor) => {
+    const accessFilter = buildSchoolAccessFilter(actor);
+    const school = await school_model_1.default.findOne(Object.assign({ _id: schoolId }, accessFilter));
+    if (!school) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
+    }
+    return school;
+};
+exports.getSchoolById = getSchoolById;
+const updateSchoolById = async (schoolId, updateBody, actor) => {
+    const school = await (0, exports.getSchoolById)(schoolId, actor);
+    if (updateBody.name) {
+        const existingSchool = await school_model_1.default.findOne({
+            _id: { $ne: schoolId },
+            schoolBoard: school.schoolBoard,
+            name: updateBody.name,
+        });
+        if (existingSchool) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School name already exists in this school board');
+        }
+    }
+    Object.assign(school, updateBody);
+    await school.save();
+    return school;
+};
+exports.updateSchoolById = updateSchoolById;
+const deleteSchoolById = async (schoolId, actor) => {
+    const school = await (0, exports.getSchoolById)(schoolId, actor);
+    await school.deleteOne();
+    await users_1.User.updateMany({ schoolId: school.id }, { $set: { schoolId: null } });
+    return school;
+};
+exports.deleteSchoolById = deleteSchoolById;
+//# sourceMappingURL=school.service.js.map
