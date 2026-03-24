@@ -57,3 +57,10 @@ export const verifyToken = {
         token: Joi.string().required(),
     }),
 };
+
+export const changePassword = {
+    body: Joi.object().keys({
+        currentPassword: Joi.string().required(),
+        newPassword: Joi.string().required().custom(password),
+    }),
+};

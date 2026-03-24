@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyResetToken = exports.resetPassword = exports.forgotPassword = exports.refreshTokens = exports.verifyEmail = exports.login = exports.register = void 0;
+exports.changePassword = exports.verifyResetToken = exports.resetPassword = exports.forgotPassword = exports.refreshTokens = exports.verifyEmail = exports.login = exports.register = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const index_1 = require("../utils/index");
 const authService = __importStar(require("./auth.service"));
@@ -80,5 +80,13 @@ exports.resetPassword = (0, index_1.catchAsync)(async (req, res) => {
 exports.verifyResetToken = (0, index_1.catchAsync)(async (req, res) => {
     const result = await authService.verifyResetToken(req.body.token);
     res.send(result);
+});
+exports.changePassword = (0, index_1.catchAsync)(async (req, res) => {
+    const account = req.account;
+    if (!(account === null || account === void 0 ? void 0 : account.id)) {
+        throw new errors_1.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
+    }
+    await authService.changePassword(account.id, req.body.currentPassword, req.body.newPassword);
+    res.status(http_status_1.default.NO_CONTENT).send();
 });
 //# sourceMappingURL=auth.controller.js.map

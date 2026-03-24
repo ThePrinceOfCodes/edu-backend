@@ -62,3 +62,14 @@ export const verifyResetToken = catchAsync(async (req: Request, res: Response) =
   const result = await authService.verifyResetToken(req.body.token);
   res.send(result);
 });
+
+export const changePassword = catchAsync(async (req: Request, res: Response) => {
+  const account = req.account;
+
+  if (!account?.id) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
+  }
+
+  await authService.changePassword(account.id, req.body.currentPassword, req.body.newPassword);
+  res.status(httpStatus.NO_CONTENT).send();
+});

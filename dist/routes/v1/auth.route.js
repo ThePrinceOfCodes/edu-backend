@@ -28,6 +28,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const validate_middleware_1 = __importDefault(require("../../modules/validate/validate.middleware"));
+const auth_1 = require("../../modules/auth");
 const authValidation = __importStar(require("../../modules/auth/auth.validation"));
 const authController = __importStar(require("../../modules/auth/auth.controller"));
 const router = express_1.default.Router();
@@ -38,5 +39,6 @@ router.post("/refresh-tokens", authController.refreshTokens);
 router.post('/forgot-password', (0, validate_middleware_1.default)(authValidation.forgotPassword), authController.forgotPassword);
 router.post('/finish-reset-password', (0, validate_middleware_1.default)(authValidation.resetPassword), authController.resetPassword);
 router.post('/verify-reset-token', (0, validate_middleware_1.default)(authValidation.verifyToken), authController.verifyResetToken);
+router.post('/change-password', auth_1.authenticate, (0, validate_middleware_1.default)(authValidation.changePassword), authController.changePassword);
 exports.default = router;
 //# sourceMappingURL=auth.route.js.map
