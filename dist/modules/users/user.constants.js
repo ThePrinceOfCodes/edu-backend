@@ -25,6 +25,11 @@ exports.ROLE_PERMISSIONS = {
         'classes.write',
         'students.read',
         'students.write',
+        'attendance.read',
+        'terms.read',
+        'terms.write',
+        'academicSessions.read',
+        'academicSessions.write',
     ],
     'school-board-admin': [
         'schools.read',
@@ -37,6 +42,11 @@ exports.ROLE_PERMISSIONS = {
         'classes.write',
         'students.read',
         'students.write',
+        'attendance.read',
+        'terms.read',
+        'terms.write',
+        'academicSessions.read',
+        'academicSessions.write',
     ],
     'school-admin': [
         'schools.read',
@@ -48,9 +58,12 @@ exports.ROLE_PERMISSIONS = {
         'classes.write',
         'students.read',
         'students.write',
+        'attendance.read',
+        'terms.read',
+        'academicSessions.read',
     ],
-    teacher: ['staff.read', 'classes.read', 'students.read'],
-    staff: ['staff.read', 'classes.read', 'students.read'],
+    teacher: ['staff.read', 'classes.read', 'students.read', 'attendance.read', 'terms.read'],
+    staff: ['staff.read', 'classes.read', 'students.read', 'attendance.read', 'terms.read'],
 };
 const getPermissionsForRole = (role) => {
     if (!role) {

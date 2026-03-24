@@ -6,6 +6,9 @@ import staffRoute from './staff.route';
 import schoolTypeRoute from './schoolType.route';
 import classRoute from './class.route';
 import studentRoute from './student.route';
+import academicSessionRoute from './academicSession.route';
+import termRoute from './term.route';
+import attendanceRoute from './attendance.route';
 
 const router = express.Router();
 
@@ -41,6 +44,18 @@ const generalRoutes: IRoute[] = [
   {
     path: '/students',
     route: studentRoute,
+  },
+  {
+    path: '/academic-sessions',
+    route: academicSessionRoute,
+  },
+  {
+    path: '/terms',
+    route: termRoute,
+  },
+  {
+    path: '/attendance',
+    route: attendanceRoute,
   },
 ];
 

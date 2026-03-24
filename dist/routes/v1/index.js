@@ -11,6 +11,9 @@ const staff_route_1 = __importDefault(require("./staff.route"));
 const schoolType_route_1 = __importDefault(require("./schoolType.route"));
 const class_route_1 = __importDefault(require("./class.route"));
 const student_route_1 = __importDefault(require("./student.route"));
+const academicSession_route_1 = __importDefault(require("./academicSession.route"));
+const term_route_1 = __importDefault(require("./term.route"));
+const attendance_route_1 = __importDefault(require("./attendance.route"));
 const router = express_1.default.Router();
 const generalRoutes = [
     {
@@ -40,6 +43,18 @@ const generalRoutes = [
     {
         path: '/students',
         route: student_route_1.default,
+    },
+    {
+        path: '/academic-sessions',
+        route: academicSession_route_1.default,
+    },
+    {
+        path: '/terms',
+        route: term_route_1.default,
+    },
+    {
+        path: '/attendance',
+        route: attendance_route_1.default,
     },
 ];
 router.get("/", (_, res) => {
