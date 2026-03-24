@@ -10,6 +10,7 @@ const school_route_1 = __importDefault(require("./school.route"));
 const staff_route_1 = __importDefault(require("./staff.route"));
 const schoolType_route_1 = __importDefault(require("./schoolType.route"));
 const class_route_1 = __importDefault(require("./class.route"));
+const student_route_1 = __importDefault(require("./student.route"));
 const router = express_1.default.Router();
 const generalRoutes = [
     {
@@ -35,6 +36,10 @@ const generalRoutes = [
     {
         path: '/classes',
         route: class_route_1.default,
+    },
+    {
+        path: '/students',
+        route: student_route_1.default,
     },
 ];
 router.get("/", (_, res) => {

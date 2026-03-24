@@ -28,6 +28,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'schoolTypes.write',
     'classes.read',
     'classes.write',
+    'students.read',
+    'students.write',
   ],
   'school-board-admin': [
     'schools.read',
@@ -38,6 +40,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'schoolTypes.write',
     'classes.read',
     'classes.write',
+    'students.read',
+    'students.write',
   ],
   'school-admin': [
     'schools.read',
@@ -47,9 +51,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'schoolTypes.read',
     'classes.read',
     'classes.write',
+    'students.read',
+    'students.write',
   ],
-  teacher: ['staff.read', 'classes.read'],
-  staff: ['staff.read', 'classes.read'],
+  teacher: ['staff.read', 'classes.read', 'students.read'],
+  staff: ['staff.read', 'classes.read', 'students.read'],
 };
 
 export const getPermissionsForRole = (role?: UserRole | null) => {
