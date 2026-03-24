@@ -1,5 +1,6 @@
 import express, { Request, Response, Router } from 'express';
 import authRoute from './auth.route';
+import userRoute from './user.route';
 import schoolBoardRoute from './schoolBoard.route';
 import schoolRoute from './school.route';
 import staffRoute from './staff.route';
@@ -20,6 +21,10 @@ const generalRoutes: IRoute[] = [
   {
     path: '/auth',
     route: authRoute,
+  },
+  {
+    path: '/users',
+    route: userRoute,
   },
   {
     path: '/school-boards',

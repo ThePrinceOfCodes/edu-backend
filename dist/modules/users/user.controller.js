@@ -26,123 +26,62 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.changeMyPassword = exports.updateProfile = exports.updateTwoFactor = exports.deleteProfileImage = exports.saveOrEditProfileImage = exports.setupPassword = exports.restoreUser = exports.disableUser = exports.resetUserPassword = exports.getInternalUsers = exports.createInternalUser = exports.getLoggedInUser = exports.createUser = void 0;
+exports.deleteUserById = exports.deactivateUserById = exports.updateUserById = exports.getUserById = exports.getUsers = exports.createInternalUser = void 0;
 const http_status_1 = __importDefault(require("http-status"));
-const index_1 = require("../utils/index");
-const index_2 = require("../errors/index");
+const utils_1 = require("../utils");
 const userService = __importStar(require("./user.service"));
-const authService = __importStar(require("../auth/auth.service"));
-const internalUsersService = __importStar(require("./internal-users.service"));
-const rbac_1 = require("../rbac");
-const organizations_1 = require("../organizations");
-exports.createUser = (0, index_1.catchAsync)(async (req, res) => {
-    const user = await userService.createUser(req.body);
-    await authService.createAuth({
+const auth_1 = require("../auth");
+const user_constants_1 = require("./user.constants");
+exports.createInternalUser = (0, utils_1.catchAsync)(async (req, res) => {
+    const { name, email, password, phoneNumber, role, permissions } = req.body;
+    const resolvedRole = user_constants_1.INTERNAL_USER_ROLES.includes(role) ? role : 'admin';
+    const resolvedPermissions = Array.isArray(permissions) && permissions.length ? permissions : (0, user_constants_1.getPermissionsForRole)(resolvedRole);
+    const user = await userService.createUser(Object.assign({ name,
+        email, accountType: 'internal', role: resolvedRole, permissions: resolvedPermissions, isVerified: true, status: 'active' }, (phoneNumber ? { phoneNumber } : {})));
+    await auth_1.authService.createAuth({
         user: user.id,
-        email: user.email,
-        password: req.body.password,
-        provider: 'email'
+        email,
+        password,
+        provider: 'email',
     });
     res.status(http_status_1.default.CREATED).send(user);
 });
-exports.getLoggedInUser = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account)
-        throw new index_2.ApiError(http_status_1.default.FORBIDDEN, 'Access denied');
-    let organization = null;
-    let permissions = [];
-    if (req.account.accountType === 'internal') {
-        const perms = await rbac_1.rbacService.getUserEffectivePermissions(req.account.id);
-        permissions = perms.map((p) => p.permission);
-    }
-    else {
-        const orgMember = await organizations_1.OrganizationMember.findOne({ userId: req.account.id });
-        if (orgMember) {
-            organization = await organizations_1.Organization.findById(orgMember.organizationId);
-        }
-    }
-    res.send({ account: req.account, user: req.account, organization, permissions });
-});
-exports.createInternalUser = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account)
-        throw new index_2.ApiError(http_status_1.default.FORBIDDEN, 'Access denied');
-    const user = await internalUsersService.createInternalUser(req.body, req.account.id);
-    res.status(http_status_1.default.CREATED).send(user);
-});
-exports.getInternalUsers = (0, index_1.catchAsync)(async (req, res) => {
-    const filter = req.query['search'] ? { name: { $regex: req.query['search'], $options: 'i' } } : {};
-    const options = {
-        sortBy: req.query['sortBy'],
-        limit: req.query['limit'],
-        page: req.query['page'],
-    };
-    const result = await internalUsersService.getInternalUsers(filter, options);
+exports.getUsers = (0, utils_1.catchAsync)(async (req, res) => {
+    const filter = (0, utils_1.pick)(req.query, ['name', 'email', 'role', 'status', 'accountType']);
+    const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
+    const result = await userService.queryUsers(filter, options);
     res.send(result);
 });
-exports.resetUserPassword = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account)
-        throw new index_2.ApiError(http_status_1.default.FORBIDDEN, 'Access denied');
-    const { userId } = req.params;
-    const { password } = req.body;
-    await internalUsersService.resetPassword(userId, password, req.account.id);
-    res.status(http_status_1.default.NO_CONTENT).send();
-});
-exports.disableUser = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account)
-        throw new index_2.ApiError(http_status_1.default.FORBIDDEN, 'Access denied');
-    const { userId } = req.params;
-    await internalUsersService.disableUser(userId, req.account.id);
-    res.status(http_status_1.default.NO_CONTENT).send();
-});
-exports.restoreUser = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account)
-        throw new index_2.ApiError(http_status_1.default.FORBIDDEN, 'Access denied');
-    const { userId } = req.params;
-    await internalUsersService.restoreUser(userId, req.account.id);
-    res.status(http_status_1.default.NO_CONTENT).send();
-});
-exports.setupPassword = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account) {
-        throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
+exports.getUserById = (0, utils_1.catchAsync)(async (req, res) => {
+    const user = await userService.getUserById(req.params['userId']);
+    if (!user) {
+        res.status(http_status_1.default.NOT_FOUND).send({ message: 'User not found' });
+        return;
     }
-    const { password } = req.body;
-    await authService.setupPassword(req.account.id, password);
-    res.status(http_status_1.default.NO_CONTENT).send();
+    res.send(user);
 });
-exports.saveOrEditProfileImage = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account) {
-        throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
+exports.updateUserById = (0, utils_1.catchAsync)(async (req, res) => {
+    const { name, email, phoneNumber, role, permissions, status } = req.body;
+    const updateBody = (0, utils_1.pick)({ name, email, phoneNumber, role, permissions, status }, [
+        'name',
+        'email',
+        'phoneNumber',
+        'role',
+        'permissions',
+        'status',
+    ]);
+    if (updateBody.role && (!Array.isArray(updateBody.permissions) || updateBody.permissions.length === 0)) {
+        updateBody.permissions = (0, user_constants_1.getPermissionsForRole)(updateBody.role);
     }
-    const { image, fileExt } = req.body;
-    const user = await userService.saveOrEditProfileImage(req.account.id, image, req.account.id, fileExt);
-    res.send({ account: user });
+    const user = await userService.updateUserById(req.params['userId'], updateBody);
+    res.send(user);
 });
-exports.deleteProfileImage = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account) {
-        throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
-    }
-    const user = await userService.deleteProfileImage(req.account.id, req.account.id);
-    res.send({ account: user });
+exports.deactivateUserById = (0, utils_1.catchAsync)(async (req, res) => {
+    const user = await userService.deactivateUserById(req.params['userId']);
+    res.send(user);
 });
-exports.updateTwoFactor = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account) {
-        throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
-    }
-    const user = await userService.updateTwoFactor(req.account.id, req.body.enabled, req.account.id);
-    res.send({ account: user });
-});
-exports.updateProfile = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account) {
-        throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
-    }
-    const user = await userService.updateProfile(req.account.id, req.body, req.account.id);
-    res.send({ account: user });
-});
-exports.changeMyPassword = (0, index_1.catchAsync)(async (req, res) => {
-    if (!req.account) {
-        throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
-    }
-    const { currentPassword, password } = req.body;
-    await authService.changePassword(req.account.id, currentPassword, password);
-    res.status(http_status_1.default.NO_CONTENT).send();
+exports.deleteUserById = (0, utils_1.catchAsync)(async (req, res) => {
+    const user = await userService.softDeleteUserById(req.params['userId']);
+    res.send(user);
 });
 //# sourceMappingURL=user.controller.js.map

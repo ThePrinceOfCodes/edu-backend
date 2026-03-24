@@ -81,7 +81,9 @@ userSchema.pre('validate', function (next) {
         if (!user.role || !user_constants_1.INTERNAL_USER_ROLES.includes(user.role)) {
             user.role = user_constants_1.DEFAULT_INTERNAL_USER_ROLE;
         }
-        user.permissions = (0, user_constants_1.getPermissionsForRole)(user.role);
+        if (!Array.isArray(user.permissions) || user.permissions.length === 0) {
+            user.permissions = (0, user_constants_1.getPermissionsForRole)(user.role);
+        }
         return next();
     }
     if (!user.role || user_constants_1.INTERNAL_USER_ROLES.includes(user.role)) {

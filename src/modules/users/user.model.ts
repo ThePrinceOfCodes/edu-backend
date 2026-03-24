@@ -91,7 +91,9 @@ userSchema.pre('validate', function (next) {
             user.role = DEFAULT_INTERNAL_USER_ROLE;
         }
 
-        user.permissions = getPermissionsForRole(user.role);
+        if (!Array.isArray(user.permissions) || user.permissions.length === 0) {
+            user.permissions = getPermissionsForRole(user.role);
+        }
         return next();
     }
 

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const auth_route_1 = __importDefault(require("./auth.route"));
+const user_route_1 = __importDefault(require("./user.route"));
 const schoolBoard_route_1 = __importDefault(require("./schoolBoard.route"));
 const school_route_1 = __importDefault(require("./school.route"));
 const staff_route_1 = __importDefault(require("./staff.route"));
@@ -19,6 +20,10 @@ const generalRoutes = [
     {
         path: '/auth',
         route: auth_route_1.default,
+    },
+    {
+        path: '/users',
+        route: user_route_1.default,
     },
     {
         path: '/school-boards',

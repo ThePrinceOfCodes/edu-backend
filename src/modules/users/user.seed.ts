@@ -16,14 +16,14 @@ type SeedOptions = {
 };
 
 const getInternalAdminSeedConfig = ({ requireConfig = false }: SeedOptions = {}): InternalAdminSeedConfig | null => {
-  const { name, email, password, role } = config.internalAdminSeed;
+  const { name, email, password } = config.internalAdminSeed;
 
   if (name && email && password) {
     return {
       name,
       email: email.toLowerCase(),
       password,
-      role,
+      role: 'super-admin',
     };
   }
 

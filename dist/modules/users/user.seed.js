@@ -9,13 +9,13 @@ const logger_1 = __importDefault(require("../logger/logger"));
 const auth_model_1 = __importDefault(require("../auth/auth.model"));
 const user_model_1 = __importDefault(require("./user.model"));
 const getInternalAdminSeedConfig = ({ requireConfig = false } = {}) => {
-    const { name, email, password, role } = config_1.default.internalAdminSeed;
+    const { name, email, password } = config_1.default.internalAdminSeed;
     if (name && email && password) {
         return {
             name,
             email: email.toLowerCase(),
             password,
-            role,
+            role: 'super-admin',
         };
     }
     const hasPartialConfig = Boolean(name || email || password);

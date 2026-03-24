@@ -50,6 +50,10 @@ export const loginUserWithEmailAndPassword = async (email: string, password: str
     throw new ApiError(httpStatus.UNAUTHORIZED, 'User account not found');
   }
 
+  if (user.status === 'disabled') {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Your account has been deactivated');
+  }
+
   return user;
 };
 

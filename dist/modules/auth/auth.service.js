@@ -46,6 +46,9 @@ const loginUserWithEmailAndPassword = async (email, password) => {
     if (!user) {
         throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'User account not found');
     }
+    if (user.status === 'disabled') {
+        throw new index_2.ApiError(http_status_1.default.FORBIDDEN, 'Your account has been deactivated');
+    }
     return user;
 };
 exports.loginUserWithEmailAndPassword = loginUserWithEmailAndPassword;
