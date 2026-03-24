@@ -2,7 +2,7 @@ import { Document, Model } from 'mongoose';
 
 export interface IStaff {
   user: string;
-  schoolBoard: string;
+  schoolBoard?: string | null;
   school?: string | null;
   employeeId?: string;
   designation?: string;

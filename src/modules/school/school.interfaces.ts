@@ -2,7 +2,7 @@ import { Document, Model } from 'mongoose';
 
 export interface ISchool {
   name: string;
-  schoolBoard: string;
+  schoolBoard?: string | null;
   adminUser?: string | null;
   address?: string;
   status?: 'active' | 'inactive';

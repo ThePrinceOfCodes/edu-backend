@@ -36,10 +36,10 @@ const resolveSchoolScopeForCreate = async (payload, actor) => {
             if (!school) {
                 throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
             }
-            return { schoolBoard: school.schoolBoard, school: school.id };
+            return { schoolBoard: school.schoolBoard || null, school: school.id };
         }
         if (!payload.schoolBoard) {
-            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolBoard is required when school is not provided');
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Either schoolBoard or school is required');
         }
         const schoolBoard = await school_board_1.SchoolBoard.findById(payload.schoolBoard);
         if (!schoolBoard) {
@@ -48,10 +48,10 @@ const resolveSchoolScopeForCreate = async (payload, actor) => {
         return { schoolBoard: schoolBoard.id, school: null };
     }
     if (actor.role === 'school-admin') {
-        if (!actor.schoolBoardId || !actor.schoolId) {
+        if (!actor.schoolId) {
             throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School context is missing for this user');
         }
-        return { schoolBoard: actor.schoolBoardId, school: actor.schoolId };
+        return { schoolBoard: actor.schoolBoardId || null, school: actor.schoolId };
     }
     if (actor.role === 'school-board-admin') {
         if (!actor.schoolBoardId) {

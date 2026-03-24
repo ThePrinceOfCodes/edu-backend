@@ -20,7 +20,7 @@ const schoolSchema = new mongoose_1.default.Schema({
     schoolBoard: {
         type: String,
         ref: 'SchoolBoard',
-        required: true,
+        default: null,
     },
     adminUser: {
         type: String,

@@ -13,7 +13,7 @@ const password = (value: string, helpers: Joi.CustomHelpers) => {
 export const createSchool = {
   body: Joi.object().keys({
     name: Joi.string().trim().required(),
-    schoolBoard: Joi.string().trim().required(),
+    schoolBoard: Joi.string().trim().optional().allow(null, ''),
     address: Joi.string().trim().optional().allow(null, ''),
     status: Joi.string().valid('active', 'inactive').optional(),
     adminUserId: Joi.string().trim().optional(),

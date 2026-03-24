@@ -21,7 +21,7 @@ const staffSchema = new mongoose_1.default.Schema({
     schoolBoard: {
         type: String,
         ref: 'SchoolBoard',
-        required: true,
+        default: null,
     },
     school: {
         type: String,

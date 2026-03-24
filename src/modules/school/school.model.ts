@@ -18,7 +18,7 @@ const schoolSchema = new mongoose.Schema<ISchoolDoc, ISchoolModel>(
     schoolBoard: {
       type: String,
       ref: 'SchoolBoard',
-      required: true,
+      default: null,
     },
     adminUser: {
       type: String,

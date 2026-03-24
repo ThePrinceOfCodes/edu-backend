@@ -17,7 +17,7 @@ const password = (value, helpers) => {
 exports.createSchool = {
     body: joi_1.default.object().keys({
         name: joi_1.default.string().trim().required(),
-        schoolBoard: joi_1.default.string().trim().required(),
+        schoolBoard: joi_1.default.string().trim().optional().allow(null, ''),
         address: joi_1.default.string().trim().optional().allow(null, ''),
         status: joi_1.default.string().valid('active', 'inactive').optional(),
         adminUserId: joi_1.default.string().trim().optional(),

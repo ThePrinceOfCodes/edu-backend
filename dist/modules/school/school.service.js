@@ -29,13 +29,14 @@ const buildSchoolAccessFilter = (actor) => {
     throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Only school board admin or school admin can access schools');
 };
 const resolveSchoolBoardIdForCreate = (payloadSchoolBoard, actor) => {
+    const normalizedPayloadSchoolBoard = payloadSchoolBoard ? payloadSchoolBoard : null;
     if (actor.accountType === 'internal') {
-        return payloadSchoolBoard;
+        return normalizedPayloadSchoolBoard;
     }
     if (!actor.schoolBoardId) {
         throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
     }
-    if (payloadSchoolBoard && payloadSchoolBoard !== actor.schoolBoardId) {
+    if (normalizedPayloadSchoolBoard && normalizedPayloadSchoolBoard !== actor.schoolBoardId) {
         throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot create a school outside your school board');
     }
     return actor.schoolBoardId;
@@ -73,18 +74,20 @@ const resolveSchoolAdminUser = async (schoolBoardId, payload) => {
 const createSchool = async (schoolBody, actor) => {
     var _a;
     const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
-    const schoolBoard = await school_board_1.SchoolBoard.findById(schoolBoardId);
-    if (!schoolBoard) {
-        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School board not found');
+    if (schoolBoardId) {
+        const schoolBoard = await school_board_1.SchoolBoard.findById(schoolBoardId);
+        if (!schoolBoard) {
+            throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School board not found');
+        }
     }
-    const existingSchool = await school_model_1.default.findOne({ name: schoolBody.name, schoolBoard: schoolBoardId });
+    const existingSchool = await school_model_1.default.findOne({ name: schoolBody.name, schoolBoard: schoolBoardId || null });
     if (existingSchool) {
-        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School already exists in this school board');
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School already exists in this scope');
     }
     const adminUser = await resolveSchoolAdminUser(schoolBoardId, schoolBody);
     const school = await school_model_1.default.create({
         name: schoolBody.name,
-        schoolBoard: schoolBoardId,
+        schoolBoard: schoolBoardId || null,
         adminUser: (_a = adminUser === null || adminUser === void 0 ? void 0 : adminUser.id) !== null && _a !== void 0 ? _a : null,
         address: schoolBody.address,
         status: schoolBody.status,
@@ -115,7 +118,7 @@ const updateSchoolById = async (schoolId, updateBody, actor) => {
     if (updateBody.name) {
         const existingSchool = await school_model_1.default.findOne({
             _id: { $ne: schoolId },
-            schoolBoard: school.schoolBoard,
+            schoolBoard: school.schoolBoard || null,
             name: updateBody.name,
         });
         if (existingSchool) {

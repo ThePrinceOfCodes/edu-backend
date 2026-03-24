@@ -41,23 +41,25 @@ const buildSchoolAccessFilter = (actor: IUserDoc) => {
   throw new ApiError(httpStatus.FORBIDDEN, 'Only school board admin or school admin can access schools');
 };
 
-const resolveSchoolBoardIdForCreate = (payloadSchoolBoard: string, actor: IUserDoc) => {
+const resolveSchoolBoardIdForCreate = (payloadSchoolBoard: string | null | undefined, actor: IUserDoc) => {
+  const normalizedPayloadSchoolBoard = payloadSchoolBoard ? payloadSchoolBoard : null;
+
   if (actor.accountType === 'internal') {
-    return payloadSchoolBoard;
+    return normalizedPayloadSchoolBoard;
   }
 
   if (!actor.schoolBoardId) {
     throw new ApiError(httpStatus.FORBIDDEN, 'School board context is missing for this user');
   }
 
-  if (payloadSchoolBoard && payloadSchoolBoard !== actor.schoolBoardId) {
+  if (normalizedPayloadSchoolBoard && normalizedPayloadSchoolBoard !== actor.schoolBoardId) {
     throw new ApiError(httpStatus.FORBIDDEN, 'Cannot create a school outside your school board');
   }
 
   return actor.schoolBoardId;
 };
 
-const resolveSchoolAdminUser = async (schoolBoardId: string, payload: CreateSchoolPayload) => {
+const resolveSchoolAdminUser = async (schoolBoardId: string | null, payload: CreateSchoolPayload) => {
   if (payload.adminUserId && payload.admin) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Provide either adminUserId or admin payload, not both');
   }
@@ -107,21 +109,23 @@ const resolveSchoolAdminUser = async (schoolBoardId: string, payload: CreateScho
 export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUserDoc) => {
   const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
 
-  const schoolBoard = await SchoolBoard.findById(schoolBoardId);
-  if (!schoolBoard) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'School board not found');
+  if (schoolBoardId) {
+    const schoolBoard = await SchoolBoard.findById(schoolBoardId);
+    if (!schoolBoard) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'School board not found');
+    }
   }
 
-  const existingSchool = await School.findOne({ name: schoolBody.name, schoolBoard: schoolBoardId });
+  const existingSchool = await School.findOne({ name: schoolBody.name, schoolBoard: schoolBoardId || null });
   if (existingSchool) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'School already exists in this school board');
+    throw new ApiError(httpStatus.BAD_REQUEST, 'School already exists in this scope');
   }
 
   const adminUser = await resolveSchoolAdminUser(schoolBoardId, schoolBody);
 
   const school = await School.create({
     name: schoolBody.name,
-    schoolBoard: schoolBoardId,
+    schoolBoard: schoolBoardId || null,
     adminUser: adminUser?.id ?? null,
     address: schoolBody.address,
     status: schoolBody.status,
@@ -157,7 +161,7 @@ export const updateSchoolById = async (schoolId: string, updateBody: Partial<ISc
   if (updateBody.name) {
     const existingSchool = await School.findOne({
       _id: { $ne: schoolId },
-      schoolBoard: school.schoolBoard,
+      schoolBoard: school.schoolBoard || null,
       name: updateBody.name,
     });
 

@@ -19,7 +19,7 @@ const staffSchema = new mongoose.Schema<IStaffDoc, IStaffModel>(
     schoolBoard: {
       type: String,
       ref: 'SchoolBoard',
-      required: true,
+      default: null,
     },
     school: {
       type: String,
