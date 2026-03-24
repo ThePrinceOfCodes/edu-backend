@@ -110,6 +110,11 @@ const createSchool = async (schoolBody, actor) => {
         classes: schoolTypeSelection.classes,
         adminUser: (_a = adminUser === null || adminUser === void 0 ? void 0 : adminUser.id) !== null && _a !== void 0 ? _a : null,
         address: schoolBody.address,
+        state: schoolBody.state,
+        localGovernment: schoolBody.localGovernment,
+        district: schoolBody.district,
+        longitude: schoolBody.longitude,
+        latitude: schoolBody.latitude,
         status: schoolBody.status,
     });
     if (adminUser) {

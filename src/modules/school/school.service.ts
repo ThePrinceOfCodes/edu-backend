@@ -154,6 +154,11 @@ export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUser
     classes: schoolTypeSelection.classes,
     adminUser: adminUser?.id ?? null,
     address: schoolBody.address,
+    state: schoolBody.state,
+    localGovernment: schoolBody.localGovernment,
+    district: schoolBody.district,
+    longitude: schoolBody.longitude,
+    latitude: schoolBody.latitude,
     status: schoolBody.status,
   });
 

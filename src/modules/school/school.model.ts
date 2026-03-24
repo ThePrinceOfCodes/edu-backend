@@ -40,6 +40,29 @@ const schoolSchema = new mongoose.Schema<ISchoolDoc, ISchoolModel>(
       trim: true,
       default: null,
     },
+    state: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    localGovernment: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    district: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
+    latitude: {
+      type: Number,
+      default: null,
+    },
     status: {
       type: String,
       enum: ['active', 'inactive'],

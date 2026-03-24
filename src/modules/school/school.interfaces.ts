@@ -7,6 +7,11 @@ export interface ISchool {
   classes?: string[];
   adminUser?: string | null;
   address?: string;
+  state?: string;
+  localGovernment?: string;
+  district?: string;
+  longitude?: number;
+  latitude?: number;
   status?: 'active' | 'inactive';
 }
 

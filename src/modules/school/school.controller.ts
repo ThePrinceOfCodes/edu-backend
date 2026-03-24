@@ -14,7 +14,7 @@ export const createSchool = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getSchools = catchAsync(async (req: Request, res: Response) => {
-  const filter = pick(req.query, ['name', 'schoolBoard', 'status']);
+  const filter = pick(req.query, ['name', 'schoolBoard', 'state', 'localGovernment', 'district', 'status']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await schoolService.querySchools(filter, options, req.account);
   res.send(result);
