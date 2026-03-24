@@ -22,6 +22,16 @@ const schoolSchema = new mongoose_1.default.Schema({
         ref: 'SchoolBoard',
         default: null,
     },
+    schoolTypes: {
+        type: [String],
+        ref: 'SchoolType',
+        default: [],
+    },
+    classes: {
+        type: [String],
+        ref: 'Class',
+        default: [],
+    },
     adminUser: {
         type: String,
         ref: 'User',

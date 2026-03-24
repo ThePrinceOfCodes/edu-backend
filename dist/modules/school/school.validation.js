@@ -18,6 +18,7 @@ exports.createSchool = {
     body: joi_1.default.object().keys({
         name: joi_1.default.string().trim().required(),
         schoolBoard: joi_1.default.string().trim().optional().allow(null, ''),
+        schoolTypes: joi_1.default.array().items(joi_1.default.string().trim()).min(1).optional(),
         address: joi_1.default.string().trim().optional().allow(null, ''),
         status: joi_1.default.string().valid('active', 'inactive').optional(),
         adminUserId: joi_1.default.string().trim().optional(),
@@ -53,6 +54,7 @@ exports.updateSchool = {
     body: joi_1.default.object()
         .keys({
         name: joi_1.default.string().trim(),
+        schoolTypes: joi_1.default.array().items(joi_1.default.string().trim()).min(1),
         address: joi_1.default.string().trim().allow(null, ''),
         adminUser: joi_1.default.string().trim().allow(null, ''),
         status: joi_1.default.string().valid('active', 'inactive'),

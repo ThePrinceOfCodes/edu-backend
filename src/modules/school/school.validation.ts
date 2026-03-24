@@ -14,6 +14,7 @@ export const createSchool = {
   body: Joi.object().keys({
     name: Joi.string().trim().required(),
     schoolBoard: Joi.string().trim().optional().allow(null, ''),
+    schoolTypes: Joi.array().items(Joi.string().trim()).min(1).optional(),
     address: Joi.string().trim().optional().allow(null, ''),
     status: Joi.string().valid('active', 'inactive').optional(),
     adminUserId: Joi.string().trim().optional(),
@@ -52,6 +53,7 @@ export const updateSchool = {
   body: Joi.object()
     .keys({
       name: Joi.string().trim(),
+      schoolTypes: Joi.array().items(Joi.string().trim()).min(1),
       address: Joi.string().trim().allow(null, ''),
       adminUser: Joi.string().trim().allow(null, ''),
       status: Joi.string().valid('active', 'inactive'),

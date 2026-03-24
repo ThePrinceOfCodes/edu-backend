@@ -4,10 +4,12 @@ import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
 import { userService, User } from '../users';
 import { SchoolBoard } from '../school-board';
+import { SchoolType } from '../school-type';
+import { ClassModel } from '../class';
 import School from './school.model';
 import { ISchool } from './school.interfaces';
 
-type CreateSchoolPayload = Omit<ISchool, 'adminUser'> & {
+type CreateSchoolPayload = Omit<ISchool, 'adminUser' | 'classes'> & {
   adminUserId?: string;
   admin?: {
     name: string;
@@ -106,8 +108,30 @@ const resolveSchoolAdminUser = async (schoolBoardId: string | null, payload: Cre
   return adminUser;
 };
 
+const resolveSchoolTypeAndClassSelection = async (schoolTypeIds: string[] | undefined) => {
+  const normalizedSchoolTypeIds = [...new Set((schoolTypeIds || []).filter(Boolean))];
+
+  if (normalizedSchoolTypeIds.length === 0) {
+    return { schoolTypes: [], classes: [] };
+  }
+
+  const schoolTypes = await SchoolType.find({ _id: { $in: normalizedSchoolTypeIds } });
+
+  if (schoolTypes.length !== normalizedSchoolTypeIds.length) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'One or more school types are invalid');
+  }
+
+  const classes = await ClassModel.find({ schoolTypeId: { $in: normalizedSchoolTypeIds } });
+
+  return {
+    schoolTypes: normalizedSchoolTypeIds,
+    classes: classes.map((item) => item.id),
+  };
+};
+
 export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUserDoc) => {
   const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
+  const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(schoolBody.schoolTypes);
 
   if (schoolBoardId) {
     const schoolBoard = await SchoolBoard.findById(schoolBoardId);
@@ -126,6 +150,8 @@ export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUser
   const school = await School.create({
     name: schoolBody.name,
     schoolBoard: schoolBoardId || null,
+    schoolTypes: schoolTypeSelection.schoolTypes,
+    classes: schoolTypeSelection.classes,
     adminUser: adminUser?.id ?? null,
     address: schoolBody.address,
     status: schoolBody.status,
@@ -168,6 +194,12 @@ export const updateSchoolById = async (schoolId: string, updateBody: Partial<ISc
     if (existingSchool) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'School name already exists in this school board');
     }
+  }
+
+  if (updateBody.schoolTypes) {
+    const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes);
+    updateBody.schoolTypes = schoolTypeSelection.schoolTypes;
+    updateBody.classes = schoolTypeSelection.classes;
   }
 
   Object.assign(school, updateBody);

@@ -3,6 +3,8 @@ import authRoute from './auth.route';
 import schoolBoardRoute from './schoolBoard.route';
 import schoolRoute from './school.route';
 import staffRoute from './staff.route';
+import schoolTypeRoute from './schoolType.route';
+import classRoute from './class.route';
 
 const router = express.Router();
 
@@ -26,6 +28,14 @@ const generalRoutes: IRoute[] = [
   {
     path: '/staff',
     route: staffRoute,
+  },
+  {
+    path: '/school-types',
+    route: schoolTypeRoute,
+  },
+  {
+    path: '/classes',
+    route: classRoute,
   },
 ];
 

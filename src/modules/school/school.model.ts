@@ -20,6 +20,16 @@ const schoolSchema = new mongoose.Schema<ISchoolDoc, ISchoolModel>(
       ref: 'SchoolBoard',
       default: null,
     },
+    schoolTypes: {
+      type: [String],
+      ref: 'SchoolType',
+      default: [],
+    },
+    classes: {
+      type: [String],
+      ref: 'Class',
+      default: [],
+    },
     adminUser: {
       type: String,
       ref: 'User',

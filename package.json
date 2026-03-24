@@ -40,6 +40,9 @@
     "commit": "git add -A && cz",
     "watch-email-templates": "nodemon --watch ./src/modules/email/templates --ext 'hbs' --exec 'yarn templates'",
     "seed:internal-admin": "tsx src/scripts/seedInternalAdmin.ts",
+    "seed:school-types": "tsx src/scripts/seedSchoolTypes.ts",
+    "seed:classes": "tsx src/scripts/seedClasses.ts",
+    "seed:school-catalog": "yarn seed:school-types && yarn seed:classes",
     "migrate": "npx sequelize-cli db:migrate",
     "migrate:undo": "npx sequelize-cli db:migrate:undo",
     "migrate:gen": "npx sequelize-cli migration:generate --name"

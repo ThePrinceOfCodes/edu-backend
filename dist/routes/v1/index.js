@@ -8,6 +8,8 @@ const auth_route_1 = __importDefault(require("./auth.route"));
 const schoolBoard_route_1 = __importDefault(require("./schoolBoard.route"));
 const school_route_1 = __importDefault(require("./school.route"));
 const staff_route_1 = __importDefault(require("./staff.route"));
+const schoolType_route_1 = __importDefault(require("./schoolType.route"));
+const class_route_1 = __importDefault(require("./class.route"));
 const router = express_1.default.Router();
 const generalRoutes = [
     {
@@ -25,6 +27,14 @@ const generalRoutes = [
     {
         path: '/staff',
         route: staff_route_1.default,
+    },
+    {
+        path: '/school-types',
+        route: schoolType_route_1.default,
+    },
+    {
+        path: '/classes',
+        route: class_route_1.default,
     },
 ];
 router.get("/", (_, res) => {

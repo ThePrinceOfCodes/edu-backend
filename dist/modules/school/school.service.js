@@ -9,6 +9,8 @@ const auth_1 = require("../auth");
 const errors_1 = require("../errors");
 const users_1 = require("../users");
 const school_board_1 = require("../school-board");
+const school_type_1 = require("../school-type");
+const class_1 = require("../class");
 const school_model_1 = __importDefault(require("./school.model"));
 const buildSchoolAccessFilter = (actor) => {
     if (actor.accountType === 'internal') {
@@ -71,9 +73,25 @@ const resolveSchoolAdminUser = async (schoolBoardId, payload) => {
     });
     return adminUser;
 };
+const resolveSchoolTypeAndClassSelection = async (schoolTypeIds) => {
+    const normalizedSchoolTypeIds = [...new Set((schoolTypeIds || []).filter(Boolean))];
+    if (normalizedSchoolTypeIds.length === 0) {
+        return { schoolTypes: [], classes: [] };
+    }
+    const schoolTypes = await school_type_1.SchoolType.find({ _id: { $in: normalizedSchoolTypeIds } });
+    if (schoolTypes.length !== normalizedSchoolTypeIds.length) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'One or more school types are invalid');
+    }
+    const classes = await class_1.ClassModel.find({ schoolTypeId: { $in: normalizedSchoolTypeIds } });
+    return {
+        schoolTypes: normalizedSchoolTypeIds,
+        classes: classes.map((item) => item.id),
+    };
+};
 const createSchool = async (schoolBody, actor) => {
     var _a;
     const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
+    const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(schoolBody.schoolTypes);
     if (schoolBoardId) {
         const schoolBoard = await school_board_1.SchoolBoard.findById(schoolBoardId);
         if (!schoolBoard) {
@@ -88,6 +106,8 @@ const createSchool = async (schoolBody, actor) => {
     const school = await school_model_1.default.create({
         name: schoolBody.name,
         schoolBoard: schoolBoardId || null,
+        schoolTypes: schoolTypeSelection.schoolTypes,
+        classes: schoolTypeSelection.classes,
         adminUser: (_a = adminUser === null || adminUser === void 0 ? void 0 : adminUser.id) !== null && _a !== void 0 ? _a : null,
         address: schoolBody.address,
         status: schoolBody.status,
@@ -124,6 +144,11 @@ const updateSchoolById = async (schoolId, updateBody, actor) => {
         if (existingSchool) {
             throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School name already exists in this school board');
         }
+    }
+    if (updateBody.schoolTypes) {
+        const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes);
+        updateBody.schoolTypes = schoolTypeSelection.schoolTypes;
+        updateBody.classes = schoolTypeSelection.classes;
     }
     Object.assign(school, updateBody);
     await school.save();
