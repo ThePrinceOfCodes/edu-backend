@@ -36,6 +36,7 @@ router
     .route('/')
     .post(auth_1.authenticate, (0, auth_1.authorize)('schools.write'), (0, validate_middleware_1.default)(schoolValidation.createSchool), schoolController.createSchool)
     .get(auth_1.authenticate, (0, auth_1.authorize)('schools.read'), (0, validate_middleware_1.default)(schoolValidation.getSchools), schoolController.getSchools);
+router.post('/bulk-import', auth_1.authenticate, (0, auth_1.authorize)('schools.write'), (0, validate_middleware_1.default)(schoolValidation.bulkImportSchools), schoolController.bulkImportSchools);
 router
     .route('/:schoolId')
     .get(auth_1.authenticate, (0, auth_1.authorize)('schools.read'), (0, validate_middleware_1.default)(schoolValidation.getSchool), schoolController.getSchool)

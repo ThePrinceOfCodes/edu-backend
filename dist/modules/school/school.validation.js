@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteSchool = exports.updateSchool = exports.getSchool = exports.getSchools = exports.createSchool = void 0;
+exports.bulkImportSchools = exports.deleteSchool = exports.updateSchool = exports.getSchool = exports.getSchools = exports.createSchool = void 0;
 const joi_1 = __importDefault(require("joi"));
 const password = (value, helpers) => {
     if (value.length < 8) {
@@ -77,6 +77,24 @@ exports.updateSchool = {
 exports.deleteSchool = {
     params: joi_1.default.object().keys({
         schoolId: joi_1.default.string().required(),
+    }),
+};
+exports.bulkImportSchools = {
+    body: joi_1.default.object().keys({
+        schools: joi_1.default.array()
+            .items(joi_1.default.object().keys({
+            name: joi_1.default.string().trim().required(),
+            schoolBoard: joi_1.default.string().trim().optional().allow(null, ''),
+            address: joi_1.default.string().trim().optional().allow(null, ''),
+            state: joi_1.default.string().trim().optional().allow(null, ''),
+            localGovernment: joi_1.default.string().trim().optional().allow(null, ''),
+            district: joi_1.default.string().trim().optional().allow(null, ''),
+            longitude: joi_1.default.number().optional().allow(null),
+            latitude: joi_1.default.number().optional().allow(null),
+            status: joi_1.default.string().valid('active', 'inactive').optional(),
+        }))
+            .min(1)
+            .required(),
     }),
 };
 //# sourceMappingURL=school.validation.js.map

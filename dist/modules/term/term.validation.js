@@ -7,7 +7,7 @@ exports.getActiveTerm = exports.deleteTerm = exports.updateTerm = exports.getTer
 const joi_1 = __importDefault(require("joi"));
 exports.createTerm = {
     body: joi_1.default.object().keys({
-        name: joi_1.default.string().trim().required(),
+        termName: joi_1.default.string().trim().required(),
         academicSessionId: joi_1.default.string().trim().required(),
         schoolBoard: joi_1.default.string().trim().optional(),
         school: joi_1.default.string().trim().allow(null, '').optional(),
@@ -19,6 +19,7 @@ exports.createTerm = {
 exports.getTerms = {
     query: joi_1.default.object().keys({
         name: joi_1.default.string(),
+        termName: joi_1.default.string(),
         academicSessionId: joi_1.default.string(),
         schoolBoard: joi_1.default.string(),
         school: joi_1.default.string(),
@@ -39,7 +40,7 @@ exports.updateTerm = {
     }),
     body: joi_1.default.object()
         .keys({
-        name: joi_1.default.string().trim(),
+        termName: joi_1.default.string().trim(),
         school: joi_1.default.string().trim().allow(null, ''),
         startDate: joi_1.default.date(),
         endDate: joi_1.default.date(),

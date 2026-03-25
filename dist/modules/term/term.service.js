@@ -9,6 +9,14 @@ const errors_1 = require("../errors");
 const academic_session_1 = require("../academic-session");
 const school_1 = require("../school");
 const term_model_1 = __importDefault(require("./term.model"));
+const formatDatePart = (value) => {
+    return value.toISOString().slice(0, 10);
+};
+const buildGeneratedTermName = (academicSession, termName, startDate, endDate) => {
+    const academicYear = `${academicSession.startYear}/${academicSession.endYear}`;
+    const dateRange = `${formatDatePart(startDate)} - ${formatDatePart(endDate)}`;
+    return `${academicYear} ${termName} (${dateRange})`;
+};
 const getNow = () => new Date();
 const buildTermAccessFilter = (actor) => {
     if (actor.accountType === 'internal') {
@@ -40,13 +48,25 @@ const resolveSchoolBoardAndSchool = async (payload, actor) => {
     let schoolBoardId = payload.schoolBoard || null;
     let schoolId = payload.school || null;
     if (actor.accountType !== 'internal') {
-        if (actor.role !== 'school-board-admin' || !actor.schoolBoardId) {
-            throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Only school board admin can create terms');
+        if (actor.role === 'school-admin') {
+            if (!actor.schoolId || !actor.schoolBoardId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School context is missing for this user');
+            }
+            if (schoolId && schoolId !== actor.schoolId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot create terms outside your school');
+            }
+            schoolBoardId = actor.schoolBoardId;
+            schoolId = actor.schoolId;
         }
-        if (schoolBoardId && schoolBoardId !== actor.schoolBoardId) {
-            throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot create terms outside your school board');
+        else {
+            if (actor.role !== 'school-board-admin' || !actor.schoolBoardId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Only school board admin or school admin can create terms');
+            }
+            if (schoolBoardId && schoolBoardId !== actor.schoolBoardId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot create terms outside your school board');
+            }
+            schoolBoardId = actor.schoolBoardId;
         }
-        schoolBoardId = actor.schoolBoardId;
     }
     if (!schoolBoardId) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolBoard is required');
@@ -148,12 +168,14 @@ const createTerm = async (payload, actor) => {
     const endDate = new Date(payload.endDate);
     ensureDateRangeValid(startDate, endDate);
     const { schoolBoardId, schoolId } = await resolveSchoolBoardAndSchool(payload, actor);
-    await ensureAcademicSessionInSchoolBoard(payload.academicSessionId, schoolBoardId);
+    const academicSession = await ensureAcademicSessionInSchoolBoard(payload.academicSessionId, schoolBoardId);
+    const normalizedTermName = payload.termName.trim();
+    const generatedName = buildGeneratedTermName(academicSession, normalizedTermName, startDate, endDate);
     const existing = await term_model_1.default.findOne({
         schoolBoard: schoolBoardId,
         school: schoolId,
         academicSessionId: payload.academicSessionId,
-        name: payload.name,
+        termName: normalizedTermName,
     });
     if (existing) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Term already exists for this scope and academic session');
@@ -162,7 +184,8 @@ const createTerm = async (payload, actor) => {
         await disableActiveTermsInSameScope(schoolBoardId, schoolId);
     }
     return term_model_1.default.create({
-        name: payload.name,
+        name: generatedName,
+        termName: normalizedTermName,
         academicSessionId: payload.academicSessionId,
         schoolBoard: schoolBoardId,
         school: schoolId,
@@ -210,12 +233,29 @@ const updateTermById = async (termId, payload, actor) => {
     const startDate = payload.startDate ? new Date(payload.startDate) : found.startDate;
     const endDate = payload.endDate ? new Date(payload.endDate) : found.endDate;
     ensureDateRangeValid(startDate, endDate);
+    const nextTermName = payload.termName !== undefined ? payload.termName.trim() : found.termName;
+    if (!nextTermName) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'termName is required');
+    }
+    if (payload.termName !== undefined || payload.startDate !== undefined || payload.endDate !== undefined) {
+        const duplicate = await term_model_1.default.findOne({
+            _id: { $ne: found.id },
+            schoolBoard: found.schoolBoard,
+            school: schoolId,
+            academicSessionId: found.academicSessionId,
+            termName: nextTermName,
+        });
+        if (duplicate) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Term already exists for this scope and academic session');
+        }
+    }
+    const academicSession = await ensureAcademicSessionInSchoolBoard(found.academicSessionId, found.schoolBoard);
+    const generatedName = buildGeneratedTermName(academicSession, nextTermName, startDate, endDate);
     if (payload.isActive) {
         await disableActiveTermsInSameScope(found.schoolBoard, schoolId, found.id);
     }
-    if (payload.name !== undefined) {
-        found.name = payload.name;
-    }
+    found.name = generatedName;
+    found.termName = nextTermName;
     found.school = schoolId;
     found.startDate = startDate;
     found.endDate = endDate;

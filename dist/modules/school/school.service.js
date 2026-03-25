@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteSchoolById = exports.updateSchoolById = exports.getSchoolById = exports.querySchools = exports.createSchool = void 0;
+exports.createSchoolsBulk = exports.deleteSchoolById = exports.updateSchoolById = exports.getSchoolById = exports.querySchools = exports.createSchool = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const auth_1 = require("../auth");
 const errors_1 = require("../errors");
@@ -167,4 +167,29 @@ const deleteSchoolById = async (schoolId, actor) => {
     return school;
 };
 exports.deleteSchoolById = deleteSchoolById;
+const createSchoolsBulk = async (schools, actor) => {
+    const created = [];
+    const failed = [];
+    for (const [index, payload] of schools.entries()) {
+        try {
+            const school = await (0, exports.createSchool)(payload, actor);
+            created.push(school);
+        }
+        catch (error) {
+            failed.push({
+                row: index + 1,
+                name: payload.name,
+                reason: error instanceof Error ? error.message : 'Unknown error',
+            });
+        }
+    }
+    return {
+        total: schools.length,
+        createdCount: created.length,
+        failedCount: failed.length,
+        created,
+        failed,
+    };
+};
+exports.createSchoolsBulk = createSchoolsBulk;
 //# sourceMappingURL=school.service.js.map

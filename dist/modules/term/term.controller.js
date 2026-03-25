@@ -36,7 +36,7 @@ exports.createTerm = (0, utils_1.catchAsync)(async (req, res) => {
     res.status(http_status_1.default.CREATED).send(created);
 });
 exports.getTerms = (0, utils_1.catchAsync)(async (req, res) => {
-    const filter = (0, utils_1.pick)(req.query, ['name', 'academicSessionId', 'schoolBoard', 'school', 'isActive']);
+    const filter = (0, utils_1.pick)(req.query, ['name', 'termName', 'academicSessionId', 'schoolBoard', 'school', 'isActive']);
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
     const result = await termService.queryTerms(filter, options, req.account);
     res.send(result);

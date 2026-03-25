@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteSchool = exports.updateSchool = exports.getSchool = exports.getSchools = exports.createSchool = void 0;
+exports.bulkImportSchools = exports.deleteSchool = exports.updateSchool = exports.getSchool = exports.getSchools = exports.createSchool = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const utils_1 = require("../utils");
 const schoolService = __importStar(require("./school.service"));
@@ -55,5 +55,9 @@ exports.updateSchool = (0, utils_1.catchAsync)(async (req, res) => {
 exports.deleteSchool = (0, utils_1.catchAsync)(async (req, res) => {
     await schoolService.deleteSchoolById(getSchoolIdFromParams(req), req.account);
     res.status(http_status_1.default.NO_CONTENT).send();
+});
+exports.bulkImportSchools = (0, utils_1.catchAsync)(async (req, res) => {
+    const result = await schoolService.createSchoolsBulk(req.body.schools, req.account);
+    res.status(http_status_1.default.CREATED).send(result);
 });
 //# sourceMappingURL=school.controller.js.map

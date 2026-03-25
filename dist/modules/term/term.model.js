@@ -17,6 +17,11 @@ const termSchema = new mongoose_1.default.Schema({
         required: true,
         trim: true,
     },
+    termName: {
+        type: String,
+        required: true,
+        trim: true,
+    },
     academicSessionId: {
         type: String,
         ref: 'AcademicSession',
@@ -47,7 +52,7 @@ const termSchema = new mongoose_1.default.Schema({
 }, {
     timestamps: true,
 });
-termSchema.index({ schoolBoard: 1, school: 1, name: 1, academicSessionId: 1 }, { unique: true });
+termSchema.index({ schoolBoard: 1, school: 1, termName: 1, academicSessionId: 1 }, { unique: true });
 termSchema.index({ schoolBoard: 1, school: 1, isActive: 1 });
 termSchema.plugin(toJSON_1.toJSON);
 termSchema.plugin(paginate_1.paginate);

@@ -219,6 +219,9 @@ export const deleteSchoolById = async (schoolId: string, actor: IUserDoc) => {
   await school.deleteOne();
   await User.updateMany({ schoolId: school.id }, { $set: { schoolId: null } });
 
+  return school;
+};
+
 export const createSchoolsBulk = async (schools: CreateSchoolPayload[], actor: IUserDoc) => {
   const created: any[] = [];
   const failed: Array<{ row: number; name?: string; reason: string }> = [];
@@ -243,7 +246,4 @@ export const createSchoolsBulk = async (schools: CreateSchoolPayload[], actor: I
     created,
     failed,
   };
-};
-
-  return school;
 };
