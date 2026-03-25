@@ -6,9 +6,24 @@ import { School } from '../school';
 import Term from './term.model';
 import { ITerm } from './term.interfaces';
 
-type CreateTermPayload = Omit<ITerm, 'schoolBoard' | 'school'> & {
+type CreateTermPayload = Omit<ITerm, 'name' | 'schoolBoard' | 'school'> & {
   schoolBoard?: string;
   school?: string | null;
+};
+
+const formatDatePart = (value: Date) => {
+  return value.toISOString().slice(0, 10);
+};
+
+const buildGeneratedTermName = (
+  academicSession: { startYear: number; endYear: number },
+  termName: string,
+  startDate: Date,
+  endDate: Date
+) => {
+  const academicYear = `${academicSession.startYear}/${academicSession.endYear}`;
+  const dateRange = `${formatDatePart(startDate)} - ${formatDatePart(endDate)}`;
+  return `${academicYear} ${termName} (${dateRange})`;
 };
 
 const getNow = () => new Date();
@@ -54,15 +69,28 @@ const resolveSchoolBoardAndSchool = async (
   let schoolId = payload.school || null;
 
   if (actor.accountType !== 'internal') {
-    if (actor.role !== 'school-board-admin' || !actor.schoolBoardId) {
-      throw new ApiError(httpStatus.FORBIDDEN, 'Only school board admin can create terms');
-    }
+    if (actor.role === 'school-admin') {
+      if (!actor.schoolId || !actor.schoolBoardId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'School context is missing for this user');
+      }
 
-    if (schoolBoardId && schoolBoardId !== actor.schoolBoardId) {
-      throw new ApiError(httpStatus.FORBIDDEN, 'Cannot create terms outside your school board');
-    }
+      if (schoolId && schoolId !== actor.schoolId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Cannot create terms outside your school');
+      }
 
-    schoolBoardId = actor.schoolBoardId;
+      schoolBoardId = actor.schoolBoardId;
+      schoolId = actor.schoolId;
+    } else {
+      if (actor.role !== 'school-board-admin' || !actor.schoolBoardId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Only school board admin or school admin can create terms');
+      }
+
+      if (schoolBoardId && schoolBoardId !== actor.schoolBoardId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Cannot create terms outside your school board');
+      }
+
+      schoolBoardId = actor.schoolBoardId;
+    }
   }
 
   if (!schoolBoardId) {
@@ -195,13 +223,16 @@ export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) =>
 
   const { schoolBoardId, schoolId } = await resolveSchoolBoardAndSchool(payload, actor);
 
-  await ensureAcademicSessionInSchoolBoard(payload.academicSessionId, schoolBoardId);
+  const academicSession = await ensureAcademicSessionInSchoolBoard(payload.academicSessionId, schoolBoardId);
+
+  const normalizedTermName = payload.termName.trim();
+  const generatedName = buildGeneratedTermName(academicSession, normalizedTermName, startDate, endDate);
 
   const existing = await Term.findOne({
     schoolBoard: schoolBoardId,
     school: schoolId,
     academicSessionId: payload.academicSessionId,
-    name: payload.name,
+    termName: normalizedTermName,
   });
 
   if (existing) {
@@ -213,7 +244,8 @@ export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) =>
   }
 
   return Term.create({
-    name: payload.name,
+    name: generatedName,
+    termName: normalizedTermName,
     academicSessionId: payload.academicSessionId,
     schoolBoard: schoolBoardId,
     school: schoolId,
@@ -271,14 +303,35 @@ export const updateTermById = async (termId: string, payload: Partial<ITerm>, ac
   const endDate = payload.endDate ? new Date(payload.endDate) : found.endDate;
   ensureDateRangeValid(startDate, endDate);
 
+  const nextTermName = payload.termName !== undefined ? payload.termName.trim() : found.termName;
+
+  if (!nextTermName) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'termName is required');
+  }
+
+  if (payload.termName !== undefined || payload.startDate !== undefined || payload.endDate !== undefined) {
+    const duplicate = await Term.findOne({
+      _id: { $ne: found.id },
+      schoolBoard: found.schoolBoard,
+      school: schoolId,
+      academicSessionId: found.academicSessionId,
+      termName: nextTermName,
+    });
+
+    if (duplicate) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Term already exists for this scope and academic session');
+    }
+  }
+
+  const academicSession = await ensureAcademicSessionInSchoolBoard(found.academicSessionId, found.schoolBoard);
+  const generatedName = buildGeneratedTermName(academicSession, nextTermName, startDate, endDate);
+
   if (payload.isActive) {
     await disableActiveTermsInSameScope(found.schoolBoard, schoolId, found.id);
   }
 
-  if (payload.name !== undefined) {
-    found.name = payload.name;
-  }
-
+  found.name = generatedName;
+  found.termName = nextTermName;
   found.school = schoolId;
   found.startDate = startDate;
   found.endDate = endDate;

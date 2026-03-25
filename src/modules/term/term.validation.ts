@@ -2,7 +2,7 @@ import Joi from 'joi';
 
 export const createTerm = {
   body: Joi.object().keys({
-    name: Joi.string().trim().required(),
+    termName: Joi.string().trim().required(),
     academicSessionId: Joi.string().trim().required(),
     schoolBoard: Joi.string().trim().optional(),
     school: Joi.string().trim().allow(null, '').optional(),
@@ -15,6 +15,7 @@ export const createTerm = {
 export const getTerms = {
   query: Joi.object().keys({
     name: Joi.string(),
+    termName: Joi.string(),
     academicSessionId: Joi.string(),
     schoolBoard: Joi.string(),
     school: Joi.string(),
@@ -37,7 +38,7 @@ export const updateTerm = {
   }),
   body: Joi.object()
     .keys({
-      name: Joi.string().trim(),
+      termName: Joi.string().trim(),
       school: Joi.string().trim().allow(null, ''),
       startDate: Joi.date(),
       endDate: Joi.date(),

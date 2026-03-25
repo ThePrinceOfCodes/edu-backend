@@ -2,6 +2,7 @@ import { Document, Model } from 'mongoose';
 
 export interface ITerm {
   name: string;
+  termName: string;
   academicSessionId: string;
   schoolBoard: string;
   school?: string | null;
