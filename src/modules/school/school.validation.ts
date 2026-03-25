@@ -75,6 +75,27 @@ export const updateSchool = {
 };
 
 export const deleteSchool = {
+
+  export const bulkImportSchools = {
+    body: Joi.object().keys({
+      schools: Joi.array()
+        .items(
+          Joi.object().keys({
+            name: Joi.string().trim().required(),
+            schoolBoard: Joi.string().trim().optional().allow(null, ''),
+            address: Joi.string().trim().optional().allow(null, ''),
+            state: Joi.string().trim().optional().allow(null, ''),
+            localGovernment: Joi.string().trim().optional().allow(null, ''),
+            district: Joi.string().trim().optional().allow(null, ''),
+            longitude: Joi.number().optional().allow(null),
+            latitude: Joi.number().optional().allow(null),
+            status: Joi.string().valid('active', 'inactive').optional(),
+          })
+        )
+        .min(1)
+        .required(),
+    }),
+  };
   params: Joi.object().keys({
     schoolId: Joi.string().required(),
   }),

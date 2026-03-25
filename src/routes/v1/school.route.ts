@@ -10,6 +10,14 @@ router
   .route('/')
   .post(authenticate, authorize('schools.write'), validate(schoolValidation.createSchool), schoolController.createSchool)
   .get(authenticate, authorize('schools.read'), validate(schoolValidation.getSchools), schoolController.getSchools);
+router.post(
+  '/bulk-import',
+  authenticate,
+  authorize('schools.write'),
+  validate(schoolValidation.bulkImportSchools),
+  schoolController.bulkImportSchools
+);
+
 
 router
   .route('/:schoolId')

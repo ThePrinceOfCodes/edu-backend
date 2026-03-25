@@ -33,4 +33,9 @@ export const updateSchool = catchAsync(async (req: Request, res: Response) => {
 export const deleteSchool = catchAsync(async (req: Request, res: Response) => {
   await schoolService.deleteSchoolById(getSchoolIdFromParams(req), req.account);
   res.status(httpStatus.NO_CONTENT).send();
+
+export const bulkImportSchools = catchAsync(async (req: Request, res: Response) => {
+  const result = await schoolService.createSchoolsBulk(req.body.schools, req.account);
+  res.status(httpStatus.CREATED).send(result);
+});
 });

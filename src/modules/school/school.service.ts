@@ -219,5 +219,31 @@ export const deleteSchoolById = async (schoolId: string, actor: IUserDoc) => {
   await school.deleteOne();
   await User.updateMany({ schoolId: school.id }, { $set: { schoolId: null } });
 
+export const createSchoolsBulk = async (schools: CreateSchoolPayload[], actor: IUserDoc) => {
+  const created: any[] = [];
+  const failed: Array<{ row: number; name?: string; reason: string }> = [];
+
+  for (const [index, payload] of schools.entries()) {
+    try {
+      const school = await createSchool(payload, actor);
+      created.push(school);
+    } catch (error) {
+      failed.push({
+        row: index + 1,
+        name: payload.name,
+        reason: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  return {
+    total: schools.length,
+    createdCount: created.length,
+    failedCount: failed.length,
+    created,
+    failed,
+  };
+};
+
   return school;
 };
