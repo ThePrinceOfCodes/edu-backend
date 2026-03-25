@@ -39,6 +39,7 @@ router.post("/refresh-tokens", authController.refreshTokens);
 router.post('/forgot-password', (0, validate_middleware_1.default)(authValidation.forgotPassword), authController.forgotPassword);
 router.post('/finish-reset-password', (0, validate_middleware_1.default)(authValidation.resetPassword), authController.resetPassword);
 router.post('/verify-reset-token', (0, validate_middleware_1.default)(authValidation.verifyToken), authController.verifyResetToken);
+router.post('/client-intent', (0, validate_middleware_1.default)(authValidation.submitClientIntent), authController.submitClientIntent);
 router.post('/change-password', auth_1.authenticate, (0, validate_middleware_1.default)(authValidation.changePassword), authController.changePassword);
 exports.default = router;
 //# sourceMappingURL=auth.route.js.map

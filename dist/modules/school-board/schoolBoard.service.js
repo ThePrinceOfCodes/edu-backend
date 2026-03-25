@@ -60,11 +60,11 @@ const createSchoolBoard = async (schoolBoardBody) => {
 };
 exports.createSchoolBoard = createSchoolBoard;
 const querySchoolBoards = async (filter, options) => {
-    return schoolBoard_model_1.default.paginate(filter, options);
+    return schoolBoard_model_1.default.paginate(filter, Object.assign(Object.assign({}, options), { populate: 'superAdminUser' }));
 };
 exports.querySchoolBoards = querySchoolBoards;
 const getSchoolBoardById = async (schoolBoardId) => {
-    return schoolBoard_model_1.default.findById(schoolBoardId);
+    return schoolBoard_model_1.default.findById(schoolBoardId).populate('superAdminUser');
 };
 exports.getSchoolBoardById = getSchoolBoardById;
 const updateSchoolBoardById = async (schoolBoardId, updateBody) => {

@@ -63,6 +63,19 @@ class EmailManagementService {
                 subject: 'Reset your password',
             });
         };
+        this.sendClientIntentAcknowledgement = async (to, name, company, message) => {
+            await this.sendEmail({
+                to,
+                templateVariables: {
+                    name,
+                    company: company || 'Not provided',
+                    message,
+                    year: new Date().getFullYear().toString(),
+                },
+                template: 'client-intent-acknowledgement',
+                subject: 'We received your request',
+            });
+        };
         this.mailjet = new node_mailjet_1.default({
             apiKey: config_1.default.email.smtp.auth.user,
             apiSecret: config_1.default.email.smtp.auth.pass,

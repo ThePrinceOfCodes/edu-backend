@@ -64,3 +64,12 @@ export const changePassword = {
         newPassword: Joi.string().required().custom(password),
     }),
 };
+
+export const submitClientIntent = {
+    body: Joi.object().keys({
+        name: Joi.string().required(),
+        email: Joi.string().email().required(),
+        company: Joi.string().allow('').optional(),
+        message: Joi.string().required(),
+    }),
+};

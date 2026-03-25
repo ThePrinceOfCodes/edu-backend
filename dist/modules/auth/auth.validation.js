@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.changePassword = exports.verifyToken = exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.login = exports.register = void 0;
+exports.submitClientIntent = exports.changePassword = exports.verifyToken = exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.login = exports.register = void 0;
 const joi_1 = __importDefault(require("joi"));
 const password = (value, helpers) => {
     if (value.length < 8) {
@@ -60,6 +60,14 @@ exports.changePassword = {
     body: joi_1.default.object().keys({
         currentPassword: joi_1.default.string().required(),
         newPassword: joi_1.default.string().required().custom(password),
+    }),
+};
+exports.submitClientIntent = {
+    body: joi_1.default.object().keys({
+        name: joi_1.default.string().required(),
+        email: joi_1.default.string().email().required(),
+        company: joi_1.default.string().allow('').optional(),
+        message: joi_1.default.string().required(),
     }),
 };
 //# sourceMappingURL=auth.validation.js.map

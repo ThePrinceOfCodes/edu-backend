@@ -198,3 +198,19 @@ export const changePassword = async (userId: string, currentPassword: string, ne
 
   return auth;
 };
+
+export const submitClientIntent = async (payload: {
+  name: string;
+  email: string;
+  company?: string;
+  message: string;
+}) => {
+  await emailManagementService.sendClientIntentAcknowledgement(
+    payload.email,
+    payload.name,
+    payload.company,
+    payload.message
+  );
+
+  return { submitted: true };
+};

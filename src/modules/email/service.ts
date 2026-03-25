@@ -140,6 +140,25 @@ class EmailManagementService {
             subject: 'Reset your password',
         });
     }
+
+    public sendClientIntentAcknowledgement = async (
+        to: string,
+        name: string,
+        company: string | undefined,
+        message: string
+    ): Promise<void> => {
+        await this.sendEmail({
+            to,
+            templateVariables: {
+                name,
+                company: company || 'Not provided',
+                message,
+                year: new Date().getFullYear().toString(),
+            },
+            template: 'client-intent-acknowledgement',
+            subject: 'We received your request',
+        });
+    }
 }
 
 export const emailManagementService = new EmailManagementService();

@@ -13,6 +13,7 @@ router.post("/refresh-tokens", authController.refreshTokens);
 router.post('/forgot-password', validate(authValidation.forgotPassword), authController.forgotPassword);
 router.post('/finish-reset-password', validate(authValidation.resetPassword), authController.resetPassword);
 router.post('/verify-reset-token', validate(authValidation.verifyToken), authController.verifyResetToken);
+router.post('/client-intent', validate(authValidation.submitClientIntent), authController.submitClientIntent);
 router.post('/change-password', authenticate, validate(authValidation.changePassword), authController.changePassword);
 
 export default router;

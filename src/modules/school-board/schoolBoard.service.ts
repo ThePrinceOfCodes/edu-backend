@@ -85,11 +85,14 @@ export const createSchoolBoard = async (schoolBoardBody: CreateSchoolBoardPayloa
 };
 
 export const querySchoolBoards = async (filter: any, options: any) => {
-  return SchoolBoard.paginate(filter, options);
+  return SchoolBoard.paginate(filter, {
+    ...options,
+    populate: 'superAdminUser',
+  });
 };
 
 export const getSchoolBoardById = async (schoolBoardId: string) => {
-  return SchoolBoard.findById(schoolBoardId);
+  return SchoolBoard.findById(schoolBoardId).populate('superAdminUser');
 };
 
 export const updateSchoolBoardById = async (schoolBoardId: string, updateBody: Partial<ISchoolBoard>) => {

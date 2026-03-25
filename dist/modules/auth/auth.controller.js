@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.changePassword = exports.verifyResetToken = exports.resetPassword = exports.forgotPassword = exports.refreshTokens = exports.verifyEmail = exports.login = exports.register = void 0;
+exports.submitClientIntent = exports.changePassword = exports.verifyResetToken = exports.resetPassword = exports.forgotPassword = exports.refreshTokens = exports.verifyEmail = exports.login = exports.register = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const index_1 = require("../utils/index");
 const authService = __importStar(require("./auth.service"));
@@ -88,5 +88,9 @@ exports.changePassword = (0, index_1.catchAsync)(async (req, res) => {
     }
     await authService.changePassword(account.id, req.body.currentPassword, req.body.newPassword);
     res.status(http_status_1.default.NO_CONTENT).send();
+});
+exports.submitClientIntent = (0, index_1.catchAsync)(async (req, res) => {
+    await authService.submitClientIntent(req.body);
+    res.status(http_status_1.default.CREATED).send({ message: 'Intent submitted successfully' });
 });
 //# sourceMappingURL=auth.controller.js.map

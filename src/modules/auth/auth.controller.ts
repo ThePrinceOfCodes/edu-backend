@@ -73,3 +73,8 @@ export const changePassword = catchAsync(async (req: Request, res: Response) => 
   await authService.changePassword(account.id, req.body.currentPassword, req.body.newPassword);
   res.status(httpStatus.NO_CONTENT).send();
 });
+
+export const submitClientIntent = catchAsync(async (req: Request, res: Response) => {
+  await authService.submitClientIntent(req.body);
+  res.status(httpStatus.CREATED).send({ message: 'Intent submitted successfully' });
+});

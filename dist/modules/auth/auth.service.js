@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.changePassword = exports.verifyResetToken = exports.resetPassword = exports.forgotPassword = exports.refreshTokens = exports.generateAuthTokens = exports.generateToken = exports.verifyOtp = exports.loginUserWithEmailAndPassword = exports.registerCompany = exports.createAuth = void 0;
+exports.submitClientIntent = exports.changePassword = exports.verifyResetToken = exports.resetPassword = exports.forgotPassword = exports.refreshTokens = exports.generateAuthTokens = exports.generateToken = exports.verifyOtp = exports.loginUserWithEmailAndPassword = exports.registerCompany = exports.createAuth = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const moment_1 = __importDefault(require("moment"));
 const http_status_1 = __importDefault(require("http-status"));
@@ -169,4 +169,9 @@ const changePassword = async (userId, currentPassword, newPassword) => {
     return auth;
 };
 exports.changePassword = changePassword;
+const submitClientIntent = async (payload) => {
+    await service_1.emailManagementService.sendClientIntentAcknowledgement(payload.email, payload.name, payload.company, payload.message);
+    return { submitted: true };
+};
+exports.submitClientIntent = submitClientIntent;
 //# sourceMappingURL=auth.service.js.map
