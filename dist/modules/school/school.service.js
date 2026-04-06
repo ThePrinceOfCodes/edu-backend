@@ -73,7 +73,7 @@ const resolveSchoolAdminUser = async (schoolBoardId, payload) => {
     });
     return adminUser;
 };
-const resolveSchoolTypeAndClassSelection = async (schoolTypeIds) => {
+const resolveSchoolTypeAndClassSelection = async (schoolTypeIds, selectedClassIds) => {
     const normalizedSchoolTypeIds = [...new Set((schoolTypeIds || []).filter(Boolean))];
     if (normalizedSchoolTypeIds.length === 0) {
         return { schoolTypes: [], classes: [] };
@@ -82,16 +82,32 @@ const resolveSchoolTypeAndClassSelection = async (schoolTypeIds) => {
     if (schoolTypes.length !== normalizedSchoolTypeIds.length) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'One or more school types are invalid');
     }
-    const classes = await class_1.ClassModel.find({ schoolTypeId: { $in: normalizedSchoolTypeIds } });
+    // If no specific classes selected, get all classes for the school types
+    if (!selectedClassIds || selectedClassIds.length === 0) {
+        const classes = await class_1.ClassModel.find({ schoolTypeId: { $in: normalizedSchoolTypeIds } });
+        return {
+            schoolTypes: normalizedSchoolTypeIds,
+            classes: classes.map((item) => item.id),
+        };
+    }
+    // If specific classes selected, validate they belong to the selected school types
+    const normalizedClassIds = [...new Set(selectedClassIds.filter(Boolean))];
+    const classes = await class_1.ClassModel.find({
+        _id: { $in: normalizedClassIds },
+        schoolTypeId: { $in: normalizedSchoolTypeIds }
+    });
+    if (classes.length !== normalizedClassIds.length) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'One or more selected classes do not belong to the selected school types');
+    }
     return {
         schoolTypes: normalizedSchoolTypeIds,
-        classes: classes.map((item) => item.id),
+        classes: normalizedClassIds,
     };
 };
 const createSchool = async (schoolBody, actor) => {
     var _a;
     const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
-    const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(schoolBody.schoolTypes);
+    const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(schoolBody.schoolTypes, schoolBody.classes);
     if (schoolBoardId) {
         const schoolBoard = await school_board_1.SchoolBoard.findById(schoolBoardId);
         if (!schoolBoard) {
@@ -151,7 +167,7 @@ const updateSchoolById = async (schoolId, updateBody, actor) => {
         }
     }
     if (updateBody.schoolTypes) {
-        const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes);
+        const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes, updateBody.classes || school.classes);
         updateBody.schoolTypes = schoolTypeSelection.schoolTypes;
         updateBody.classes = schoolTypeSelection.classes;
     }

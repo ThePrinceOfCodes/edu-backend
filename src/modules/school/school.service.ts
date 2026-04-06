@@ -9,7 +9,7 @@ import { ClassModel } from '../class';
 import School from './school.model';
 import { ISchool } from './school.interfaces';
 
-type CreateSchoolPayload = Omit<ISchool, 'adminUser' | 'classes'> & {
+type CreateSchoolPayload = Omit<ISchool, 'adminUser'> & {
   adminUserId?: string;
   admin?: {
     name: string;
@@ -108,7 +108,7 @@ const resolveSchoolAdminUser = async (schoolBoardId: string | null, payload: Cre
   return adminUser;
 };
 
-const resolveSchoolTypeAndClassSelection = async (schoolTypeIds: string[] | undefined) => {
+const resolveSchoolTypeAndClassSelection = async (schoolTypeIds: string[] | undefined, selectedClassIds: string[] | undefined) => {
   const normalizedSchoolTypeIds = [...new Set((schoolTypeIds || []).filter(Boolean))];
 
   if (normalizedSchoolTypeIds.length === 0) {
@@ -121,17 +121,35 @@ const resolveSchoolTypeAndClassSelection = async (schoolTypeIds: string[] | unde
     throw new ApiError(httpStatus.BAD_REQUEST, 'One or more school types are invalid');
   }
 
-  const classes = await ClassModel.find({ schoolTypeId: { $in: normalizedSchoolTypeIds } });
+  // If no specific classes selected, get all classes for the school types
+  if (!selectedClassIds || selectedClassIds.length === 0) {
+    const classes = await ClassModel.find({ schoolTypeId: { $in: normalizedSchoolTypeIds } });
+    return {
+      schoolTypes: normalizedSchoolTypeIds,
+      classes: classes.map((item) => item.id),
+    };
+  }
+
+  // If specific classes selected, validate they belong to the selected school types
+  const normalizedClassIds = [...new Set(selectedClassIds.filter(Boolean))];
+  const classes = await ClassModel.find({ 
+    _id: { $in: normalizedClassIds },
+    schoolTypeId: { $in: normalizedSchoolTypeIds }
+  });
+
+  if (classes.length !== normalizedClassIds.length) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'One or more selected classes do not belong to the selected school types');
+  }
 
   return {
     schoolTypes: normalizedSchoolTypeIds,
-    classes: classes.map((item) => item.id),
+    classes: normalizedClassIds,
   };
 };
 
 export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUserDoc) => {
   const schoolBoardId = resolveSchoolBoardIdForCreate(schoolBody.schoolBoard, actor);
-  const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(schoolBody.schoolTypes);
+  const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(schoolBody.schoolTypes, schoolBody.classes);
 
   if (schoolBoardId) {
     const schoolBoard = await SchoolBoard.findById(schoolBoardId);
@@ -202,7 +220,7 @@ export const updateSchoolById = async (schoolId: string, updateBody: Partial<ISc
   }
 
   if (updateBody.schoolTypes) {
-    const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes);
+    const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes, updateBody.classes || school.classes);
     updateBody.schoolTypes = schoolTypeSelection.schoolTypes;
     updateBody.classes = schoolTypeSelection.classes;
   }
