@@ -46,7 +46,7 @@ exports.getThreadMessages = (0, utils_1.catchAsync)(async (req, res) => {
     res.send(result);
 });
 exports.sendMessage = (0, utils_1.catchAsync)(async (req, res) => {
-    const created = await messagingService.sendMessage(getThreadIdFromParams(req), req.body.content, req.account);
+    const created = await messagingService.sendMessage(getThreadIdFromParams(req), req.body.content, req.body.attachments, req.account);
     res.status(http_status_1.default.CREATED).send(created);
 });
 //# sourceMappingURL=messaging.controller.js.map

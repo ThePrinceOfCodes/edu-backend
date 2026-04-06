@@ -25,6 +25,17 @@ const messageSchema = new mongoose.Schema<IMessageDoc, IMessageModel>(
       trim: true,
       required: true,
     },
+    attachments: {
+      type: [
+        {
+          name: { type: String, required: true },
+          url: { type: String, required: true },
+          type: { type: String, default: null },
+          size: { type: Number, default: null },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -23,6 +23,11 @@ export const getThreadMessages = catchAsync(async (req: Request, res: Response) 
 });
 
 export const sendMessage = catchAsync(async (req: Request, res: Response) => {
-  const created = await messagingService.sendMessage(getThreadIdFromParams(req), req.body.content, req.account);
+  const created = await messagingService.sendMessage(
+    getThreadIdFromParams(req),
+    req.body.content,
+    req.body.attachments,
+    req.account
+  );
   res.status(httpStatus.CREATED).send(created);
 });

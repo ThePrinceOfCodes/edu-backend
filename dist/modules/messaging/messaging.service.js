@@ -75,7 +75,7 @@ const queryThreadMessages = async (threadId, actor, options) => {
     return message_model_1.default.paginate({ thread: threadId }, Object.assign(Object.assign({}, options), { sortBy: options.sortBy || 'createdAt:asc' }));
 };
 exports.queryThreadMessages = queryThreadMessages;
-const sendMessage = async (threadId, content, actor) => {
+const sendMessage = async (threadId, content, attachments, actor) => {
     const actorId = getActorId(actor);
     const thread = await ensureThreadAccess(threadId, actor);
     if (thread.isBroadcast && !canBroadcast(actor)) {
@@ -85,6 +85,12 @@ const sendMessage = async (threadId, content, actor) => {
         thread: thread.id,
         sender: actorId,
         content: content.trim(),
+        attachments: (attachments || []).map((item) => ({
+            name: item.name,
+            url: item.url,
+            type: item.type || undefined,
+            size: item.size,
+        })),
     });
 };
 exports.sendMessage = sendMessage;

@@ -96,7 +96,12 @@ export const queryThreadMessages = async (threadId: string, actor: IUserDoc, opt
   );
 };
 
-export const sendMessage = async (threadId: string, content: string, actor: IUserDoc) => {
+export const sendMessage = async (
+  threadId: string,
+  content: string,
+  attachments: Array<{ name: string; url: string; type?: string; size?: number }> | undefined,
+  actor: IUserDoc
+) => {
   const actorId = getActorId(actor);
   const thread = await ensureThreadAccess(threadId, actor);
 
@@ -108,5 +113,11 @@ export const sendMessage = async (threadId: string, content: string, actor: IUse
     thread: thread.id,
     sender: actorId,
     content: content.trim(),
+    attachments: (attachments || []).map((item) => ({
+      name: item.name,
+      url: item.url,
+      type: item.type || undefined,
+      size: item.size,
+    })),
   });
 };

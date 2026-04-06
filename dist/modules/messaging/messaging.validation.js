@@ -35,6 +35,14 @@ exports.sendMessage = {
     }),
     body: joi_1.default.object().keys({
         content: joi_1.default.string().trim().required(),
+        attachments: joi_1.default.array()
+            .items(joi_1.default.object().keys({
+            name: joi_1.default.string().trim().required(),
+            url: joi_1.default.string().required(),
+            type: joi_1.default.string().trim().optional().allow(null, ''),
+            size: joi_1.default.number().optional(),
+        }))
+            .optional(),
     }),
 };
 //# sourceMappingURL=messaging.validation.js.map

@@ -33,5 +33,15 @@ export const sendMessage = {
   }),
   body: Joi.object().keys({
     content: Joi.string().trim().required(),
+    attachments: Joi.array()
+      .items(
+        Joi.object().keys({
+          name: Joi.string().trim().required(),
+          url: Joi.string().required(),
+          type: Joi.string().trim().optional().allow(null, ''),
+          size: Joi.number().optional(),
+        })
+      )
+      .optional(),
   }),
 };

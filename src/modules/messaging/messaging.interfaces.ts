@@ -18,6 +18,12 @@ export interface IMessage {
   thread: string;
   sender: string;
   content: string;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type?: string;
+    size?: number;
+  }>;
 }
 
 export interface IMessageDoc extends IMessage, Document {}
