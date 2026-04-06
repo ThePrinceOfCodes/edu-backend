@@ -10,6 +10,7 @@ import studentRoute from './student.route';
 import academicSessionRoute from './academicSession.route';
 import termRoute from './term.route';
 import attendanceRoute from './attendance.route';
+import messagingRoute from './messaging.route';
 
 const router = express.Router();
 
@@ -61,6 +62,10 @@ const generalRoutes: IRoute[] = [
   {
     path: '/attendance',
     route: attendanceRoute,
+  },
+  {
+    path: '/messages',
+    route: messagingRoute,
   },
 ];
 
