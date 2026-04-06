@@ -19,6 +19,44 @@ type CreateSchoolPayload = Omit<ISchool, 'adminUser'> & {
   };
 };
 
+const normalizeAdminUserIds = (payload: {
+  adminUsers?: string[];
+  adminUser?: string | null;
+  adminUserId?: string;
+}) => {
+  const normalized = new Set<string>();
+
+  (payload.adminUsers || []).filter(Boolean).forEach((id) => normalized.add(id));
+  if (payload.adminUser) {
+    normalized.add(payload.adminUser);
+  }
+  if (payload.adminUserId) {
+    normalized.add(payload.adminUserId);
+  }
+
+  return [...normalized];
+};
+
+const validateAndPrepareAdminUsers = async (schoolBoardId: string | null, adminUserIds: string[]) => {
+  const validatedAdminUsers: string[] = [];
+
+  for (const adminUserId of adminUserIds) {
+    const adminUser = await userService.getUserById(adminUserId);
+    if (!adminUser) {
+      throw new ApiError(httpStatus.NOT_FOUND, `Assigned school admin user not found: ${adminUserId}`);
+    }
+
+    adminUser.accountType = 'client';
+    adminUser.role = 'school-admin';
+    adminUser.schoolBoardId = schoolBoardId;
+    await adminUser.save();
+
+    validatedAdminUsers.push(adminUser.id);
+  }
+
+  return validatedAdminUsers;
+};
+
 const buildSchoolAccessFilter = (actor: IUserDoc) => {
   if (actor.accountType === 'internal') {
     return {};
@@ -164,13 +202,17 @@ export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUser
   }
 
   const adminUser = await resolveSchoolAdminUser(schoolBoardId, schoolBody);
+  const requestedAdminUsers = normalizeAdminUserIds(schoolBody);
+  const validatedAdminUsers = await validateAndPrepareAdminUsers(schoolBoardId, requestedAdminUsers);
+  const allAdminUsers = [...new Set([...(adminUser?.id ? [adminUser.id] : []), ...validatedAdminUsers])];
 
   const school = await School.create({
     name: schoolBody.name,
     schoolBoard: schoolBoardId || null,
     schoolTypes: schoolTypeSelection.schoolTypes,
     classes: schoolTypeSelection.classes,
-    adminUser: adminUser?.id ?? null,
+    adminUser: allAdminUsers[0] ?? adminUser?.id ?? null,
+    adminUsers: allAdminUsers,
     address: schoolBody.address,
     state: schoolBody.state,
     localGovernment: schoolBody.localGovernment,
@@ -183,6 +225,10 @@ export const createSchool = async (schoolBody: CreateSchoolPayload, actor: IUser
   if (adminUser) {
     adminUser.schoolId = school.id;
     await adminUser.save();
+  }
+
+  if (allAdminUsers.length > 0) {
+    await User.updateMany({ _id: { $in: allAdminUsers } }, { $set: { schoolId: school.id } });
   }
 
   return school;
@@ -223,6 +269,21 @@ export const updateSchoolById = async (schoolId: string, updateBody: Partial<ISc
     const schoolTypeSelection = await resolveSchoolTypeAndClassSelection(updateBody.schoolTypes, updateBody.classes || school.classes);
     updateBody.schoolTypes = schoolTypeSelection.schoolTypes;
     updateBody.classes = schoolTypeSelection.classes;
+  }
+
+  if (updateBody.adminUsers || updateBody.adminUser !== undefined) {
+    const requestedAdminUsers = normalizeAdminUserIds({
+      ...(updateBody.adminUsers ? { adminUsers: updateBody.adminUsers } : {}),
+      ...(updateBody.adminUser !== undefined ? { adminUser: updateBody.adminUser } : {}),
+    });
+
+    const validatedAdminUsers = await validateAndPrepareAdminUsers(school.schoolBoard || null, requestedAdminUsers);
+    updateBody.adminUsers = validatedAdminUsers;
+    updateBody.adminUser = validatedAdminUsers[0] ?? null;
+
+    if (validatedAdminUsers.length > 0) {
+      await User.updateMany({ _id: { $in: validatedAdminUsers } }, { $set: { schoolId: school.id } });
+    }
   }
 
   Object.assign(school, updateBody);

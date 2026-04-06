@@ -23,6 +23,7 @@ export const createSchool = {
     latitude: Joi.number().optional(),
     status: Joi.string().valid('active', 'inactive').optional(),
     adminUserId: Joi.string().trim().optional(),
+    adminUsers: Joi.array().items(Joi.string().trim()).optional(),
     admin: Joi.object()
       .keys({
         name: Joi.string().trim().required(),
@@ -69,6 +70,7 @@ export const updateSchool = {
       longitude: Joi.number(),
       latitude: Joi.number(),
       adminUser: Joi.string().trim().allow(null, ''),
+      adminUsers: Joi.array().items(Joi.string().trim()),
       status: Joi.string().valid('active', 'inactive'),
     })
     .min(1),

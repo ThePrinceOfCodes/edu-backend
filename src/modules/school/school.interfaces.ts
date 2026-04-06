@@ -6,6 +6,7 @@ export interface ISchool {
   schoolTypes?: string[];
   classes?: string[];
   adminUser?: string | null;
+  adminUsers?: string[];
   address?: string;
   state?: string;
   localGovernment?: string;

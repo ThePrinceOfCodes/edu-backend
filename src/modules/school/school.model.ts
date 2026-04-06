@@ -35,6 +35,11 @@ const schoolSchema = new mongoose.Schema<ISchoolDoc, ISchoolModel>(
       ref: 'User',
       default: null,
     },
+    adminUsers: {
+      type: [String],
+      ref: 'User',
+      default: [],
+    },
     address: {
       type: String,
       trim: true,

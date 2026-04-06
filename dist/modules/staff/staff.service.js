@@ -120,12 +120,12 @@ const createStaff = async (staffBody, actor) => {
 exports.createStaff = createStaff;
 const queryStaff = async (filter, options, actor) => {
     const accessFilter = buildStaffAccessFilter(actor);
-    return staff_model_1.default.paginate(Object.assign(Object.assign({}, filter), accessFilter), options);
+    return staff_model_1.default.paginate(Object.assign(Object.assign({}, filter), accessFilter), Object.assign(Object.assign({}, options), { populate: 'user' }));
 };
 exports.queryStaff = queryStaff;
 const getStaffById = async (staffId, actor) => {
     const accessFilter = buildStaffAccessFilter(actor);
-    const staff = await staff_model_1.default.findOne(Object.assign({ _id: staffId }, accessFilter));
+    const staff = await staff_model_1.default.findOne(Object.assign({ _id: staffId }, accessFilter)).populate('user');
     if (!staff) {
         throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Staff record not found');
     }

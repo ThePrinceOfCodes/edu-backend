@@ -37,6 +37,11 @@ const schoolSchema = new mongoose_1.default.Schema({
         ref: 'User',
         default: null,
     },
+    adminUsers: {
+        type: [String],
+        ref: 'User',
+        default: [],
+    },
     address: {
         type: String,
         trim: true,

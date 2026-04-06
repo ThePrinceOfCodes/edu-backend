@@ -170,12 +170,12 @@ export const createStaff = async (staffBody: CreateStaffPayload, actor: IUserDoc
 
 export const queryStaff = async (filter: any, options: any, actor: IUserDoc) => {
   const accessFilter = buildStaffAccessFilter(actor);
-  return Staff.paginate({ ...filter, ...accessFilter }, options);
+  return Staff.paginate({ ...filter, ...accessFilter }, { ...options, populate: 'user' });
 };
 
 export const getStaffById = async (staffId: string, actor: IUserDoc) => {
   const accessFilter = buildStaffAccessFilter(actor);
-  const staff = await Staff.findOne({ _id: staffId, ...accessFilter });
+  const staff = await Staff.findOne({ _id: staffId, ...accessFilter }).populate('user');
 
   if (!staff) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Staff record not found');

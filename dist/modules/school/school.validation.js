@@ -27,6 +27,7 @@ exports.createSchool = {
         latitude: joi_1.default.number().optional(),
         status: joi_1.default.string().valid('active', 'inactive').optional(),
         adminUserId: joi_1.default.string().trim().optional(),
+        adminUsers: joi_1.default.array().items(joi_1.default.string().trim()).optional(),
         admin: joi_1.default.object()
             .keys({
             name: joi_1.default.string().trim().required(),
@@ -70,6 +71,7 @@ exports.updateSchool = {
         longitude: joi_1.default.number(),
         latitude: joi_1.default.number(),
         adminUser: joi_1.default.string().trim().allow(null, ''),
+        adminUsers: joi_1.default.array().items(joi_1.default.string().trim()),
         status: joi_1.default.string().valid('active', 'inactive'),
     })
         .min(1),
