@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import config from '../../config/config';
 import { User } from '../users/index';
+import { getPermissionsForRole } from '../users/user.constants';
 import { ApiError } from '../errors/index';
 
 export const authenticate = async (req: Request, _res: Response, next: NextFunction) => {
@@ -20,7 +21,8 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
         }
 
         req.account = user.toJSON();
-        req.account.permissions = user.permissions ?? [];
+        // Calculate permissions dynamically from role to ensure they're always up-to-date
+        req.account.permissions = getPermissionsForRole(user.role) ?? [];
         (req as any).tokenPayload = decoded;
         next();
     } catch (error) {

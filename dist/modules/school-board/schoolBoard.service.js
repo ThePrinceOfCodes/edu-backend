@@ -59,11 +59,24 @@ const createSchoolBoard = async (schoolBoardBody) => {
     return schoolBoard;
 };
 exports.createSchoolBoard = createSchoolBoard;
-const querySchoolBoards = async (filter, options) => {
-    return schoolBoard_model_1.default.paginate(filter, Object.assign(Object.assign({}, options), { populate: 'superAdminUser' }));
+const querySchoolBoards = async (filter, options, actor) => {
+    let accessFilter = filter;
+    if (actor && actor.accountType === 'client') {
+        // School board admins and school admins can only see their own school board
+        if (actor.schoolBoardId) {
+            accessFilter = Object.assign(Object.assign({}, filter), { _id: actor.schoolBoardId });
+        }
+    }
+    return schoolBoard_model_1.default.paginate(accessFilter, Object.assign(Object.assign({}, options), { populate: 'superAdminUser' }));
 };
 exports.querySchoolBoards = querySchoolBoards;
-const getSchoolBoardById = async (schoolBoardId) => {
+const getSchoolBoardById = async (schoolBoardId, actor) => {
+    // Check access control for non-internal users
+    if (actor && actor.accountType === 'client') {
+        if (!actor.schoolBoardId || actor.schoolBoardId !== schoolBoardId) {
+            throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'You do not have access to this school board');
+        }
+    }
     return schoolBoard_model_1.default.findById(schoolBoardId).populate('superAdminUser');
 };
 exports.getSchoolBoardById = getSchoolBoardById;

@@ -17,7 +17,6 @@ router
   )
   .get(
     authenticate,
-    requireInternalUser,
     authorize('schoolBoards.read'),
     validate(schoolBoardValidation.getSchoolBoards),
     schoolBoardController.getSchoolBoards
@@ -27,7 +26,6 @@ router
   .route('/:schoolBoardId')
   .get(
     authenticate,
-    requireInternalUser,
     authorize('schoolBoards.read'),
     validate(schoolBoardValidation.getSchoolBoard),
     schoolBoardController.getSchoolBoard

@@ -12,9 +12,8 @@ type ClassSeedRecord = {
 
 const CLASS_SEED_DATA: ClassSeedRecord[] = [
   { schoolTypeName: 'Nursery', name: 'Creche', code: 'CRE' },
-  { schoolTypeName: 'Nursery', name: 'Playgroup', code: 'PG' },
-  { schoolTypeName: 'Nursery', name: 'Nursery 1', code: 'N1' },
-  { schoolTypeName: 'Nursery', name: 'Nursery 2', code: 'N2' },
+  { schoolTypeName: 'Nursery', name: 'KG 1', code: 'KG1' },
+  { schoolTypeName: 'Nursery', name: 'KG 2', code: 'KG2' },
 
   { schoolTypeName: 'Primary', name: 'Primary 1', code: 'P1' },
   { schoolTypeName: 'Primary', name: 'Primary 2', code: 'P2' },
@@ -25,33 +24,33 @@ const CLASS_SEED_DATA: ClassSeedRecord[] = [
 
   {
     schoolTypeName: 'Junior Secondary',
-    name: 'Junior Secondary School One',
+    name: 'JSS 1',
     code: 'JSS1',
   },
   {
     schoolTypeName: 'Junior Secondary',
-    name: 'Junior Secondary School Two',
+    name: 'JSS 2',
     code: 'JSS2',
   },
   {
     schoolTypeName: 'Junior Secondary',
-    name: 'Junior Secondary School Three',
+    name: 'JSS 3',
     code: 'JSS3',
   },
 
   {
     schoolTypeName: 'Senior Secondary',
-    name: 'Senior Secondary School One',
+    name: 'SS 1',
     code: 'SS1',
   },
   {
     schoolTypeName: 'Senior Secondary',
-    name: 'Senior Secondary School Two',
+    name: 'SS 2',
     code: 'SS2',
   },
   {
     schoolTypeName: 'Senior Secondary',
-    name: 'Senior Secondary School Three',
+    name: 'SS 3',
     code: 'SS3',
   },
 ];

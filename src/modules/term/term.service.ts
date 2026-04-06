@@ -217,6 +217,10 @@ export const getActiveTermForRequest = async (actor: IUserDoc, schoolId?: string
 };
 
 export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) => {
+  if (actor.role !== 'school-board-admin' && actor.role !== 'school-admin') {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Only school board admin and school admin can create terms');
+  }
+
   const startDate = new Date(payload.startDate);
   const endDate = new Date(payload.endDate);
   ensureDateRangeValid(startDate, endDate);

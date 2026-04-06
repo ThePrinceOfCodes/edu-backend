@@ -41,11 +41,11 @@ exports.createSchoolBoard = (0, utils_1.catchAsync)(async (req, res) => {
 exports.getSchoolBoards = (0, utils_1.catchAsync)(async (req, res) => {
     const filter = (0, utils_1.pick)(req.query, ['name', 'code', 'status']);
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
-    const result = await schoolBoardService.querySchoolBoards(filter, options);
+    const result = await schoolBoardService.querySchoolBoards(filter, options, req.account);
     res.send(result);
 });
 exports.getSchoolBoard = (0, utils_1.catchAsync)(async (req, res) => {
-    const schoolBoard = await schoolBoardService.getSchoolBoardById(getSchoolBoardIdFromParams(req));
+    const schoolBoard = await schoolBoardService.getSchoolBoardById(getSchoolBoardIdFromParams(req), req.account);
     res.send(schoolBoard);
 });
 exports.updateSchoolBoard = (0, utils_1.catchAsync)(async (req, res) => {

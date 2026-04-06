@@ -164,6 +164,9 @@ const getActiveTermForRequest = async (actor, schoolId) => {
 };
 exports.getActiveTermForRequest = getActiveTermForRequest;
 const createTerm = async (payload, actor) => {
+    if (actor.role !== 'school-board-admin' && actor.role !== 'school-admin') {
+        throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Only school board admin and school admin can create terms');
+    }
     const startDate = new Date(payload.startDate);
     const endDate = new Date(payload.endDate);
     ensureDateRangeValid(startDate, endDate);

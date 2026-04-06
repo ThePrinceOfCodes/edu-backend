@@ -16,12 +16,12 @@ export const createSchoolBoard = catchAsync(async (req: Request, res: Response) 
 export const getSchoolBoards = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, ['name', 'code', 'status']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  const result = await schoolBoardService.querySchoolBoards(filter, options);
+  const result = await schoolBoardService.querySchoolBoards(filter, options, req.account);
   res.send(result);
 });
 
 export const getSchoolBoard = catchAsync(async (req: Request, res: Response) => {
-  const schoolBoard = await schoolBoardService.getSchoolBoardById(getSchoolBoardIdFromParams(req));
+  const schoolBoard = await schoolBoardService.getSchoolBoardById(getSchoolBoardIdFromParams(req), req.account);
   res.send(schoolBoard);
 });
 

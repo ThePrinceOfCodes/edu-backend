@@ -8,6 +8,7 @@ const http_status_1 = __importDefault(require("http-status"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_1 = __importDefault(require("../../config/config"));
 const index_1 = require("../users/index");
+const user_constants_1 = require("../users/user.constants");
 const index_2 = require("../errors/index");
 const authenticate = async (req, _res, next) => {
     var _a, _b;
@@ -22,7 +23,8 @@ const authenticate = async (req, _res, next) => {
             throw new index_2.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
         }
         req.account = user.toJSON();
-        req.account.permissions = (_b = user.permissions) !== null && _b !== void 0 ? _b : [];
+        // Calculate permissions dynamically from role to ensure they're always up-to-date
+        req.account.permissions = (_b = (0, user_constants_1.getPermissionsForRole)(user.role)) !== null && _b !== void 0 ? _b : [];
         req.tokenPayload = decoded;
         next();
     }

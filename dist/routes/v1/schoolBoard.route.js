@@ -35,10 +35,10 @@ const router = express_1.default.Router();
 router
     .route('/')
     .post(auth_1.authenticate, auth_1.requireInternalUser, (0, auth_1.authorize)('schoolBoards.write'), (0, validate_middleware_1.default)(schoolBoardValidation.createSchoolBoard), schoolBoardController.createSchoolBoard)
-    .get(auth_1.authenticate, auth_1.requireInternalUser, (0, auth_1.authorize)('schoolBoards.read'), (0, validate_middleware_1.default)(schoolBoardValidation.getSchoolBoards), schoolBoardController.getSchoolBoards);
+    .get(auth_1.authenticate, (0, auth_1.authorize)('schoolBoards.read'), (0, validate_middleware_1.default)(schoolBoardValidation.getSchoolBoards), schoolBoardController.getSchoolBoards);
 router
     .route('/:schoolBoardId')
-    .get(auth_1.authenticate, auth_1.requireInternalUser, (0, auth_1.authorize)('schoolBoards.read'), (0, validate_middleware_1.default)(schoolBoardValidation.getSchoolBoard), schoolBoardController.getSchoolBoard)
+    .get(auth_1.authenticate, (0, auth_1.authorize)('schoolBoards.read'), (0, validate_middleware_1.default)(schoolBoardValidation.getSchoolBoard), schoolBoardController.getSchoolBoard)
     .patch(auth_1.authenticate, auth_1.requireInternalUser, (0, auth_1.authorize)('schoolBoards.write'), (0, validate_middleware_1.default)(schoolBoardValidation.updateSchoolBoard), schoolBoardController.updateSchoolBoard)
     .delete(auth_1.authenticate, auth_1.requireInternalUser, (0, auth_1.authorize)('schoolBoards.write'), (0, validate_middleware_1.default)(schoolBoardValidation.deleteSchoolBoard), schoolBoardController.deleteSchoolBoard);
 exports.default = router;
