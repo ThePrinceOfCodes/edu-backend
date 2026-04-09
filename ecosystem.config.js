@@ -1,7 +1,7 @@
 module.exports = {
   "apps": [
     {
-      "name": "trackup-backend",
+      "name": "edt-backend",
       "script": "dist/index.js",
       "interpreter": "node",
       "node_args": "-r ./tsconfig-paths-bootstrap.js",

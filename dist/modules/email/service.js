@@ -111,7 +111,7 @@ class EmailManagementService {
                     {
                         From: {
                             Email: config_1.default.email.from,
-                            Name: 'Trackup',
+                            Name: 'Edt',
                         },
                         To: [
                             {
