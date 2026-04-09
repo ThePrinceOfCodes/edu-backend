@@ -11,7 +11,7 @@ export const createTerm = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getTerms = catchAsync(async (req: Request, res: Response) => {
-  const filter = pick(req.query, ['name', 'termName', 'academicSessionId', 'schoolBoard', 'school', 'isActive']);
+  const filter = pick(req.query, ['name', 'termName', 'academicSession', 'schoolBoard', 'school', 'isActive']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await termService.queryTerms(filter, options, req.account);
   res.send(result);

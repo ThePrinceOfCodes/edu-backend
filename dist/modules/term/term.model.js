@@ -22,10 +22,10 @@ const termSchema = new mongoose_1.default.Schema({
         required: true,
         trim: true,
     },
-    academicSessionId: {
+    academicSession: {
         type: String,
-        ref: 'AcademicSession',
         required: true,
+        trim: true,
     },
     schoolBoard: {
         type: String,
@@ -52,7 +52,7 @@ const termSchema = new mongoose_1.default.Schema({
 }, {
     timestamps: true,
 });
-termSchema.index({ schoolBoard: 1, school: 1, termName: 1, academicSessionId: 1 }, { unique: true });
+termSchema.index({ schoolBoard: 1, school: 1, termName: 1, academicSession: 1 }, { unique: true });
 termSchema.index({ schoolBoard: 1, school: 1, isActive: 1 });
 termSchema.plugin(toJSON_1.toJSON);
 termSchema.plugin(paginate_1.paginate);

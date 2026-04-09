@@ -1,7 +1,6 @@
 import httpStatus from 'http-status';
 import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
-import { AcademicSession } from '../academic-session';
 import { School } from '../school';
 import Term from './term.model';
 import { ITerm } from './term.interfaces';
@@ -11,22 +10,45 @@ type CreateTermPayload = Omit<ITerm, 'name' | 'schoolBoard' | 'school'> & {
   school?: string | null;
 };
 
-const formatDatePart = (value: Date) => {
-  return value.toISOString().slice(0, 10);
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatFriendlyDate = (value: Date) => {
+  const dayName = DAY_NAMES[value.getUTCDay()];
+  const day = value.getUTCDate();
+  const month = MONTH_NAMES_SHORT[value.getUTCMonth()];
+  return `${dayName} ${day} ${month}`;
 };
 
 const buildGeneratedTermName = (
-  academicSession: { startYear: number; endYear: number },
+  academicSession: string,
   termName: string,
   startDate: Date,
   endDate: Date
 ) => {
-  const academicYear = `${academicSession.startYear}/${academicSession.endYear}`;
-  const dateRange = `${formatDatePart(startDate)} - ${formatDatePart(endDate)}`;
-  return `${academicYear} ${termName} (${dateRange})`;
+  const dateRange = `${formatFriendlyDate(startDate)} - ${formatFriendlyDate(endDate)}`;
+  return `${academicSession} - ${termName} - (${dateRange})`;
 };
 
 const getNow = () => new Date();
+
+const buildBoardWideSchoolClauses = () => [{ school: null }, { school: { $exists: false } }];
+
+const buildBoardWideTermFilter = (schoolBoardId: string) => ({
+  schoolBoard: schoolBoardId,
+  $or: buildBoardWideSchoolClauses(),
+});
+
+const buildScopedTermFilter = (schoolBoardId: string, schoolId: string | null) => {
+  if (schoolId) {
+    return {
+      schoolBoard: schoolBoardId,
+      school: schoolId,
+    };
+  }
+
+  return buildBoardWideTermFilter(schoolBoardId);
+};
 
 const buildTermAccessFilter = (actor: IUserDoc) => {
   if (actor.accountType === 'internal') {
@@ -48,7 +70,7 @@ const buildTermAccessFilter = (actor: IUserDoc) => {
 
     const schoolId = actor.schoolId;
     return {
-      $or: [{ school: schoolId }, { school: null }],
+      $or: [{ school: schoolId }, ...buildBoardWideSchoolClauses()],
     };
   }
 
@@ -112,24 +134,9 @@ const resolveSchoolBoardAndSchool = async (
   return { schoolBoardId, schoolId };
 };
 
-const ensureAcademicSessionInSchoolBoard = async (academicSessionId: string, schoolBoardId: string) => {
-  const academicSession = await AcademicSession.findById(academicSessionId);
-
-  if (!academicSession) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Academic session not found');
-  }
-
-  if (academicSession.schoolBoard !== schoolBoardId) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Academic session does not belong to the selected school board');
-  }
-
-  return academicSession;
-};
-
 const disableActiveTermsInSameScope = async (schoolBoardId: string, schoolId: string | null, currentTermId?: string) => {
   const filter: Record<string, any> = {
-    schoolBoard: schoolBoardId,
-    school: schoolId,
+    ...buildScopedTermFilter(schoolBoardId, schoolId),
     isActive: true,
   };
 
@@ -140,11 +147,26 @@ const disableActiveTermsInSameScope = async (schoolBoardId: string, schoolId: st
   await Term.updateMany(filter, { $set: { isActive: false } });
 };
 
+export const getActiveTermForSchoolBoard = async (schoolBoardId: string) => {
+  const now = getNow();
+
+  return Term.findOne({
+    ...buildBoardWideTermFilter(schoolBoardId),
+    isActive: true,
+    startDate: { $lte: now },
+    endDate: { $gte: now },
+  }).sort({ startDate: -1 });
+};
+
 export const getActiveTermForSchool = async (schoolId: string) => {
   const school = await School.findById(schoolId);
 
   if (!school) {
     throw new ApiError(httpStatus.NOT_FOUND, 'School not found');
+  }
+
+  if (!school.schoolBoard) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'School does not belong to a school board');
   }
 
   const now = getNow();
@@ -160,13 +182,7 @@ export const getActiveTermForSchool = async (schoolId: string) => {
     return schoolTerm;
   }
 
-  const boardTerm = await Term.findOne({
-    schoolBoard: school.schoolBoard,
-    school: null,
-    isActive: true,
-    startDate: { $lte: now },
-    endDate: { $gte: now },
-  }).sort({ startDate: -1 });
+  const boardTerm = await getActiveTermForSchoolBoard(school.schoolBoard);
 
   return boardTerm;
 };
@@ -227,15 +243,12 @@ export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) =>
 
   const { schoolBoardId, schoolId } = await resolveSchoolBoardAndSchool(payload, actor);
 
-  const academicSession = await ensureAcademicSessionInSchoolBoard(payload.academicSessionId, schoolBoardId);
-
   const normalizedTermName = payload.termName.trim();
-  const generatedName = buildGeneratedTermName(academicSession, normalizedTermName, startDate, endDate);
+  const generatedName = buildGeneratedTermName(payload.academicSession, normalizedTermName, startDate, endDate);
 
   const existing = await Term.findOne({
-    schoolBoard: schoolBoardId,
-    school: schoolId,
-    academicSessionId: payload.academicSessionId,
+    ...buildScopedTermFilter(schoolBoardId, schoolId),
+    academicSession: payload.academicSession,
     termName: normalizedTermName,
   });
 
@@ -250,7 +263,7 @@ export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) =>
   return Term.create({
     name: generatedName,
     termName: normalizedTermName,
-    academicSessionId: payload.academicSessionId,
+    academicSession: payload.academicSession,
     schoolBoard: schoolBoardId,
     school: schoolId,
     startDate,
@@ -278,8 +291,8 @@ export const getTermById = async (termId: string, actor: IUserDoc) => {
 export const updateTermById = async (termId: string, payload: Partial<ITerm>, actor: IUserDoc) => {
   const found = await getTermById(termId, actor);
 
-  if (payload.schoolBoard || payload.academicSessionId) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'schoolBoard and academicSessionId cannot be updated');
+  if (payload.schoolBoard || payload.academicSession) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'schoolBoard and academicSession cannot be updated');
   }
 
   let schoolId = found.school || null;
@@ -316,9 +329,8 @@ export const updateTermById = async (termId: string, payload: Partial<ITerm>, ac
   if (payload.termName !== undefined || payload.startDate !== undefined || payload.endDate !== undefined) {
     const duplicate = await Term.findOne({
       _id: { $ne: found.id },
-      schoolBoard: found.schoolBoard,
-      school: schoolId,
-      academicSessionId: found.academicSessionId,
+      ...buildScopedTermFilter(found.schoolBoard, schoolId),
+      academicSession: found.academicSession,
       termName: nextTermName,
     });
 
@@ -327,8 +339,7 @@ export const updateTermById = async (termId: string, payload: Partial<ITerm>, ac
     }
   }
 
-  const academicSession = await ensureAcademicSessionInSchoolBoard(found.academicSessionId, found.schoolBoard);
-  const generatedName = buildGeneratedTermName(academicSession, nextTermName, startDate, endDate);
+  const generatedName = buildGeneratedTermName(found.academicSession, nextTermName, startDate, endDate);
 
   if (payload.isActive) {
     await disableActiveTermsInSameScope(found.schoolBoard, schoolId, found.id);

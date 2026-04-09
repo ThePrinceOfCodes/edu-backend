@@ -8,7 +8,7 @@ const joi_1 = __importDefault(require("joi"));
 exports.createTerm = {
     body: joi_1.default.object().keys({
         termName: joi_1.default.string().trim().required(),
-        academicSessionId: joi_1.default.string().trim().required(),
+        academicSession: joi_1.default.string().trim().required(),
         schoolBoard: joi_1.default.string().trim().optional(),
         school: joi_1.default.string().trim().allow(null, '').optional(),
         startDate: joi_1.default.date().required(),
@@ -20,7 +20,7 @@ exports.getTerms = {
     query: joi_1.default.object().keys({
         name: joi_1.default.string(),
         termName: joi_1.default.string(),
-        academicSessionId: joi_1.default.string(),
+        academicSession: joi_1.default.string(),
         schoolBoard: joi_1.default.string(),
         school: joi_1.default.string(),
         isActive: joi_1.default.boolean(),

@@ -80,10 +80,21 @@ const resolveTermForAttendance = async (schoolId, termId) => {
         return explicitTerm;
     }
     const activeTerm = await term_1.termService.getActiveTermForSchool(schoolId);
-    if (!activeTerm) {
-        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'No active term found for this school');
+    if (activeTerm) {
+        return activeTerm;
     }
-    return activeTerm;
+    const school = await school_1.School.findById(schoolId);
+    if (!school) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
+    }
+    if (!school.schoolBoard) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School does not belong to a school board');
+    }
+    const boardTerm = await term_1.termService.getActiveTermForSchoolBoard(school.schoolBoard);
+    if (boardTerm) {
+        return boardTerm;
+    }
+    throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'No active term found for this school or school board');
 };
 const queryAttendance = async (filter, options, actor, context) => {
     const school = await resolveSchoolContext(actor, context.schoolId);
@@ -143,7 +154,7 @@ const getAttendanceSummary = async (actor, context) => {
         term: {
             id: term.id,
             name: term.name,
-            academicSessionId: term.academicSessionId,
+            academicSession: term.academicSession,
             schoolBoard: term.schoolBoard,
             school: term.school,
             startDate: term.startDate,

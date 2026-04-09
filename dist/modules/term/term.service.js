@@ -3,21 +3,38 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteTermById = exports.updateTermById = exports.getTermById = exports.queryTerms = exports.createTerm = exports.getActiveTermForRequest = exports.getActiveTermForSchool = void 0;
+exports.deleteTermById = exports.updateTermById = exports.getTermById = exports.queryTerms = exports.createTerm = exports.getActiveTermForRequest = exports.getActiveTermForSchool = exports.getActiveTermForSchoolBoard = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const errors_1 = require("../errors");
-const academic_session_1 = require("../academic-session");
 const school_1 = require("../school");
 const term_model_1 = __importDefault(require("./term.model"));
-const formatDatePart = (value) => {
-    return value.toISOString().slice(0, 10);
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatFriendlyDate = (value) => {
+    const dayName = DAY_NAMES[value.getUTCDay()];
+    const day = value.getUTCDate();
+    const month = MONTH_NAMES_SHORT[value.getUTCMonth()];
+    return `${dayName} ${day} ${month}`;
 };
 const buildGeneratedTermName = (academicSession, termName, startDate, endDate) => {
-    const academicYear = `${academicSession.startYear}/${academicSession.endYear}`;
-    const dateRange = `${formatDatePart(startDate)} - ${formatDatePart(endDate)}`;
-    return `${academicYear} ${termName} (${dateRange})`;
+    const dateRange = `${formatFriendlyDate(startDate)} - ${formatFriendlyDate(endDate)}`;
+    return `${academicSession} - ${termName} - (${dateRange})`;
 };
 const getNow = () => new Date();
+const buildBoardWideSchoolClauses = () => [{ school: null }, { school: { $exists: false } }];
+const buildBoardWideTermFilter = (schoolBoardId) => ({
+    schoolBoard: schoolBoardId,
+    $or: buildBoardWideSchoolClauses(),
+});
+const buildScopedTermFilter = (schoolBoardId, schoolId) => {
+    if (schoolId) {
+        return {
+            schoolBoard: schoolBoardId,
+            school: schoolId,
+        };
+    }
+    return buildBoardWideTermFilter(schoolBoardId);
+};
 const buildTermAccessFilter = (actor) => {
     if (actor.accountType === 'internal') {
         return {};
@@ -34,7 +51,7 @@ const buildTermAccessFilter = (actor) => {
         }
         const schoolId = actor.schoolId;
         return {
-            $or: [{ school: schoolId }, { school: null }],
+            $or: [{ school: schoolId }, ...buildBoardWideSchoolClauses()],
         };
     }
     throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'You are not allowed to access terms');
@@ -82,31 +99,25 @@ const resolveSchoolBoardAndSchool = async (payload, actor) => {
     }
     return { schoolBoardId, schoolId };
 };
-const ensureAcademicSessionInSchoolBoard = async (academicSessionId, schoolBoardId) => {
-    const academicSession = await academic_session_1.AcademicSession.findById(academicSessionId);
-    if (!academicSession) {
-        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Academic session not found');
-    }
-    if (academicSession.schoolBoard !== schoolBoardId) {
-        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Academic session does not belong to the selected school board');
-    }
-    return academicSession;
-};
 const disableActiveTermsInSameScope = async (schoolBoardId, schoolId, currentTermId) => {
-    const filter = {
-        schoolBoard: schoolBoardId,
-        school: schoolId,
-        isActive: true,
-    };
+    const filter = Object.assign(Object.assign({}, buildScopedTermFilter(schoolBoardId, schoolId)), { isActive: true });
     if (currentTermId) {
         filter['_id'] = { $ne: currentTermId };
     }
     await term_model_1.default.updateMany(filter, { $set: { isActive: false } });
 };
+const getActiveTermForSchoolBoard = async (schoolBoardId) => {
+    const now = getNow();
+    return term_model_1.default.findOne(Object.assign(Object.assign({}, buildBoardWideTermFilter(schoolBoardId)), { isActive: true, startDate: { $lte: now }, endDate: { $gte: now } })).sort({ startDate: -1 });
+};
+exports.getActiveTermForSchoolBoard = getActiveTermForSchoolBoard;
 const getActiveTermForSchool = async (schoolId) => {
     const school = await school_1.School.findById(schoolId);
     if (!school) {
         throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
+    }
+    if (!school.schoolBoard) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School does not belong to a school board');
     }
     const now = getNow();
     const schoolTerm = await term_model_1.default.findOne({
@@ -118,13 +129,7 @@ const getActiveTermForSchool = async (schoolId) => {
     if (schoolTerm) {
         return schoolTerm;
     }
-    const boardTerm = await term_model_1.default.findOne({
-        schoolBoard: school.schoolBoard,
-        school: null,
-        isActive: true,
-        startDate: { $lte: now },
-        endDate: { $gte: now },
-    }).sort({ startDate: -1 });
+    const boardTerm = await (0, exports.getActiveTermForSchoolBoard)(school.schoolBoard);
     return boardTerm;
 };
 exports.getActiveTermForSchool = getActiveTermForSchool;
@@ -171,15 +176,9 @@ const createTerm = async (payload, actor) => {
     const endDate = new Date(payload.endDate);
     ensureDateRangeValid(startDate, endDate);
     const { schoolBoardId, schoolId } = await resolveSchoolBoardAndSchool(payload, actor);
-    const academicSession = await ensureAcademicSessionInSchoolBoard(payload.academicSessionId, schoolBoardId);
     const normalizedTermName = payload.termName.trim();
-    const generatedName = buildGeneratedTermName(academicSession, normalizedTermName, startDate, endDate);
-    const existing = await term_model_1.default.findOne({
-        schoolBoard: schoolBoardId,
-        school: schoolId,
-        academicSessionId: payload.academicSessionId,
-        termName: normalizedTermName,
-    });
+    const generatedName = buildGeneratedTermName(payload.academicSession, normalizedTermName, startDate, endDate);
+    const existing = await term_model_1.default.findOne(Object.assign(Object.assign({}, buildScopedTermFilter(schoolBoardId, schoolId)), { academicSession: payload.academicSession, termName: normalizedTermName }));
     if (existing) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Term already exists for this scope and academic session');
     }
@@ -189,7 +188,7 @@ const createTerm = async (payload, actor) => {
     return term_model_1.default.create({
         name: generatedName,
         termName: normalizedTermName,
-        academicSessionId: payload.academicSessionId,
+        academicSession: payload.academicSession,
         schoolBoard: schoolBoardId,
         school: schoolId,
         startDate,
@@ -214,8 +213,8 @@ const getTermById = async (termId, actor) => {
 exports.getTermById = getTermById;
 const updateTermById = async (termId, payload, actor) => {
     const found = await (0, exports.getTermById)(termId, actor);
-    if (payload.schoolBoard || payload.academicSessionId) {
-        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolBoard and academicSessionId cannot be updated');
+    if (payload.schoolBoard || payload.academicSession) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolBoard and academicSession cannot be updated');
     }
     let schoolId = found.school || null;
     if (payload.school !== undefined) {
@@ -241,19 +240,12 @@ const updateTermById = async (termId, payload, actor) => {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'termName is required');
     }
     if (payload.termName !== undefined || payload.startDate !== undefined || payload.endDate !== undefined) {
-        const duplicate = await term_model_1.default.findOne({
-            _id: { $ne: found.id },
-            schoolBoard: found.schoolBoard,
-            school: schoolId,
-            academicSessionId: found.academicSessionId,
-            termName: nextTermName,
-        });
+        const duplicate = await term_model_1.default.findOne(Object.assign(Object.assign({ _id: { $ne: found.id } }, buildScopedTermFilter(found.schoolBoard, schoolId)), { academicSession: found.academicSession, termName: nextTermName }));
         if (duplicate) {
             throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Term already exists for this scope and academic session');
         }
     }
-    const academicSession = await ensureAcademicSessionInSchoolBoard(found.academicSessionId, found.schoolBoard);
-    const generatedName = buildGeneratedTermName(academicSession, nextTermName, startDate, endDate);
+    const generatedName = buildGeneratedTermName(found.academicSession, nextTermName, startDate, endDate);
     if (payload.isActive) {
         await disableActiveTermsInSameScope(found.schoolBoard, schoolId, found.id);
     }

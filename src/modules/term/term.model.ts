@@ -20,10 +20,10 @@ const termSchema = new mongoose.Schema<ITermDoc, ITermModel>(
       required: true,
       trim: true,
     },
-    academicSessionId: {
+    academicSession: {
       type: String,
-      ref: 'AcademicSession',
       required: true,
+      trim: true,
     },
     schoolBoard: {
       type: String,
@@ -53,7 +53,7 @@ const termSchema = new mongoose.Schema<ITermDoc, ITermModel>(
   }
 );
 
-termSchema.index({ schoolBoard: 1, school: 1, termName: 1, academicSessionId: 1 }, { unique: true });
+termSchema.index({ schoolBoard: 1, school: 1, termName: 1, academicSession: 1 }, { unique: true });
 termSchema.index({ schoolBoard: 1, school: 1, isActive: 1 });
 termSchema.plugin(toJSON);
 termSchema.plugin(paginate);
