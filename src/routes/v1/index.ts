@@ -25,7 +25,7 @@ const generalRoutes: IRoute[] = [
     route: authRoute,
   },
   {
-    path: '/users',
+    path: '/userss',
     route: userRoute,
   },
   {
