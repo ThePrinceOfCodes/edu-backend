@@ -1,6 +1,7 @@
 import httpStatus from 'http-status';
 import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
+import ClassModel from '../class/class.model';
 import { School } from '../school';
 import { Student } from '../student';
 import { termService, Term } from '../term';
@@ -11,6 +12,7 @@ const ATTENDED_STATUSES = new Set(['present']);
 type AttendanceContextOptions = {
   schoolId?: string;
   termId?: string;
+  classId?: string;
 };
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
@@ -152,12 +154,26 @@ export const queryAttendance = async (
 ) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
   const term = await resolveTermForAttendance(school.id, context.termId);
+  const studentFilter: { school: string; classId?: string } = { school: school.id };
+
+  if (context.classId) {
+    const allowedClassIds = school.classes || [];
+    if (!allowedClassIds.includes(context.classId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Selected class does not belong to this school');
+    }
+
+    studentFilter.classId = context.classId;
+  }
+
+  const students = await Student.find(studentFilter).select('_id');
+  const studentIds = students.map((student) => student.id);
 
   return Attendance.paginate(
     {
       ...filter,
       school: school.id,
       termId: term.id,
+      student: { $in: studentIds },
       date: {
         $gte: term.startDate,
         $lte: term.endDate,
@@ -170,12 +186,26 @@ export const queryAttendance = async (
 export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceContextOptions) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
   const term = await resolveTermForAttendance(school.id, context.termId);
+  const studentFilter: { school: string; classId?: string } = { school: school.id };
 
-  const students = await Student.find({ school: school.id }).sort({ lastName: 1, firstName: 1 });
+  if (context.classId) {
+    const allowedClassIds = school.classes || [];
+    if (!allowedClassIds.includes(context.classId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Selected class does not belong to this school');
+    }
+
+    studentFilter.classId = context.classId;
+  }
+
+  const students = await Student.find(studentFilter).sort({ lastName: 1, firstName: 1 });
+  const classIds = Array.from(new Set(students.map((student) => student.classId).filter(Boolean)));
+  const classes = classIds.length > 0 ? await ClassModel.find({ _id: { $in: classIds } }) : [];
+  const classById = new Map(classes.map((classItem) => [classItem.id, classItem]));
 
   const records = await Attendance.find({
     school: school.id,
     termId: term.id,
+    student: { $in: students.map((student) => student.id) },
     date: {
       $gte: term.startDate,
       $lte: term.endDate,
@@ -198,6 +228,7 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
 
   const rows = students.map((student) => {
     const statusMap = byStudentDate.get(student.id) || new Map<string, string>();
+    const studentClass = classById.get(student.classId);
 
     const statusByDate = dayKeys.reduce(
       (acc: Record<string, string>, dateKey) => {
@@ -220,6 +251,10 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
       studentId: student.id,
       studentName: `${student.firstName} ${student.lastName}`,
       regNumber: student.regNumber,
+      gender: student.gender,
+      classId: student.classId,
+      classCode: studentClass?.code ?? null,
+      className: studentClass?.name ?? null,
       attendancePercentage,
       statusByDate,
     };
