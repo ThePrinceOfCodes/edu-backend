@@ -6,7 +6,7 @@ import { Student } from '../student';
 import { termService, Term } from '../term';
 import Attendance from './attendance.model';
 
-const ATTENDED_STATUSES = new Set(['present', 'late', 'excused']);
+const ATTENDED_STATUSES = new Set(['present']);
 
 type AttendanceContextOptions = {
   schoolId?: string;
@@ -14,6 +14,18 @@ type AttendanceContextOptions = {
 };
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
+
+const isWeekend = (date: Date) => {
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
+};
+
+const normalizeStatus = (status: string | undefined): string => {
+  if (!status) return '-';
+  if (status === 'present' || status === 'late') return 'present';
+  if (status === 'absent' || status === 'excused') return 'absent';
+  return '-';
+};
 
 const buildDayList = (startDate: Date, endDate: Date) => {
   const days: Array<{ date: string; label: string }> = [];
@@ -25,13 +37,15 @@ const buildDayList = (startDate: Date, endDate: Date) => {
   last.setUTCHours(0, 0, 0, 0);
 
   while (current <= last) {
-    const date = toDateKey(current);
-    const dayOfMonth = new Date(current).getUTCDate();
+    if (!isWeekend(current)) {
+      const date = toDateKey(current);
+      const dayOfMonth = current.getUTCDate();
 
-    days.push({
-      date,
-      label: String(dayOfMonth),
-    });
+      days.push({
+        date,
+        label: String(dayOfMonth),
+      });
+    }
 
     current.setUTCDate(current.getUTCDate() + 1);
   }
@@ -187,18 +201,20 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
 
     const statusByDate = dayKeys.reduce(
       (acc: Record<string, string>, dateKey) => {
-        acc[dateKey] = statusMap.get(dateKey) || '-';
+        acc[dateKey] = normalizeStatus(statusMap.get(dateKey));
         return acc;
       },
       {}
     );
 
-    const attendedDays = dayKeys.reduce((count, dateKey) => {
-      const status = statusMap.get(dateKey);
-      return ATTENDED_STATUSES.has(status || '') ? count + 1 : count;
+    const daysWithRecord = dayKeys.filter((dateKey) => statusMap.has(dateKey));
+    const attendedDays = daysWithRecord.reduce((count, dateKey) => {
+      const status = normalizeStatus(statusMap.get(dateKey));
+      return ATTENDED_STATUSES.has(status) ? count + 1 : count;
     }, 0);
 
-    const attendancePercentage = dayKeys.length > 0 ? Number(((attendedDays / dayKeys.length) * 100).toFixed(2)) : 0;
+    const attendancePercentage =
+      daysWithRecord.length > 0 ? Number(((attendedDays / daysWithRecord.length) * 100).toFixed(2)) : 0;
 
     return {
       studentId: student.id,
