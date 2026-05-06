@@ -1,0 +1,75 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.listExtractions = exports.getExtraction = exports.createExtraction = void 0;
+const http_status_1 = __importDefault(require("http-status"));
+const utils_1 = require("../utils");
+const attendantExtractionService = __importStar(require("./attendant-extraction.service"));
+const attendant_extraction_model_1 = __importDefault(require("./attendant-extraction.model"));
+const errors_1 = require("../errors");
+exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    const file = req.file;
+    const schoolId = (((_a = req.body) === null || _a === void 0 ? void 0 : _a['schoolId']) || ((_b = req.query) === null || _b === void 0 ? void 0 : _b['schoolId']) || ((_c = req.account) === null || _c === void 0 ? void 0 : _c['schoolId']));
+    const termId = (((_d = req.body) === null || _d === void 0 ? void 0 : _d['termId']) || ((_e = req.query) === null || _e === void 0 ? void 0 : _e['termId']));
+    const academicSessionId = (((_f = req.body) === null || _f === void 0 ? void 0 : _f['academicSessionId']) || ((_g = req.query) === null || _g === void 0 ? void 0 : _g['academicSessionId']));
+    const startDate = ((_h = req.body) === null || _h === void 0 ? void 0 : _h['startDate']) ? new Date(req.body['startDate']) : undefined;
+    const endDate = ((_j = req.body) === null || _j === void 0 ? void 0 : _j['endDate']) ? new Date(req.body['endDate']) : undefined;
+    if (!schoolId)
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolId is required');
+    if (!termId)
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'termId is required');
+    if (!academicSessionId)
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'academicSessionId is required');
+    if (!startDate || isNaN(startDate.getTime()))
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'startDate is required and must be a valid date');
+    if (!endDate || isNaN(endDate.getTime()))
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'endDate is required and must be a valid date');
+    if (startDate > endDate)
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'startDate must be before or equal to endDate');
+    const imagePath = await attendantExtractionService.saveUpload(file);
+    const extraction = await attendantExtractionService.createExtractionJob(imagePath, {
+        schoolId,
+        termId,
+        academicSessionId,
+        startDate,
+        endDate,
+    });
+    res.status(http_status_1.default.CREATED).send(extraction);
+});
+exports.getExtraction = (0, utils_1.catchAsync)(async (req, res) => {
+    const extraction = await attendantExtractionService.getExtractionById(req.params['id']);
+    res.send(extraction);
+});
+exports.listExtractions = (0, utils_1.catchAsync)(async (req, res) => {
+    const filter = (0, utils_1.pick)(req.query, ['status']);
+    const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
+    const result = await attendant_extraction_model_1.default.paginate(filter, options);
+    res.send(result);
+});
+//# sourceMappingURL=attendant-extraction.controller.js.map

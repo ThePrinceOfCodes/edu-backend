@@ -1,0 +1,346 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAttendanceCalendarSummary = exports.getAttendanceSummary = exports.queryAttendance = void 0;
+const http_status_1 = __importDefault(require("http-status"));
+const errors_1 = require("../errors");
+const class_model_1 = __importDefault(require("../class/class.model"));
+const school_1 = require("../school");
+const student_1 = require("../student");
+const term_1 = require("../term");
+const attendance_model_1 = __importDefault(require("./attendance.model"));
+const attendant_extraction_model_1 = __importDefault(require("../attendant-extraction/attendant-extraction.model"));
+const attendant_review_model_1 = __importDefault(require("../attendant-review/attendant-review.model"));
+const attendant_dates_util_1 = require("../attendant-extraction/attendant-dates.util");
+const ATTENDED_STATUSES = new Set(['present']);
+const toDateKey = (value) => value.toISOString().slice(0, 10);
+const isWeekend = (date) => {
+    const day = date.getUTCDay();
+    return day === 0 || day === 6;
+};
+const normalizeStatus = (status) => {
+    if (!status)
+        return '-';
+    if (status === 'present' || status === 'late')
+        return 'present';
+    if (status === 'absent' || status === 'excused')
+        return 'absent';
+    return '-';
+};
+const buildDayList = (startDate, endDate) => {
+    const days = [];
+    const current = new Date(startDate);
+    current.setUTCHours(0, 0, 0, 0);
+    const last = new Date(endDate);
+    last.setUTCHours(0, 0, 0, 0);
+    while (current <= last) {
+        if (!isWeekend(current)) {
+            const date = toDateKey(current);
+            const dayOfMonth = current.getUTCDate();
+            days.push({
+                date,
+                label: String(dayOfMonth),
+            });
+        }
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+    return days;
+};
+const resolveSchoolContext = async (actor, schoolId) => {
+    if (actor.accountType !== 'internal') {
+        if (actor.role === 'school-admin' || actor.role === 'teacher' || actor.role === 'staff') {
+            if (!actor.schoolId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School context is missing for this user');
+            }
+            if (schoolId && schoolId !== actor.schoolId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot access attendance for another school');
+            }
+            schoolId = actor.schoolId;
+        }
+        if (actor.role === 'school-board-admin') {
+            if (!actor.schoolBoardId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
+            }
+            if (!schoolId) {
+                throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'school is required for school-board-admin');
+            }
+            const school = await school_1.School.findById(schoolId);
+            if (!school || school.schoolBoard !== actor.schoolBoardId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School is outside your school board');
+            }
+        }
+    }
+    if (!schoolId) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'school is required');
+    }
+    const school = await school_1.School.findById(schoolId);
+    if (!school) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
+    }
+    return school;
+};
+const resolveClassContext = async (schoolId, classId) => {
+    const classDoc = await class_model_1.default.findById(classId);
+    if (!classDoc) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Class not found');
+    }
+    const matchingStudent = await student_1.Student.findOne({ school: schoolId, classId });
+    if (!matchingStudent) {
+        // class exists but no student in that school/class scope
+        // keep the endpoint strict so mobile doesn't silently show wrong data
+        throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Class is outside the requested school scope');
+    }
+    return classDoc;
+};
+const resolveTermForAttendance = async (schoolId, termId) => {
+    if (termId) {
+        const explicitTerm = await term_1.Term.findById(termId);
+        if (!explicitTerm) {
+            throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Term not found');
+        }
+        if (explicitTerm.school && explicitTerm.school !== schoolId) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected term is scoped to a different school');
+        }
+        if (!explicitTerm.school) {
+            const school = await school_1.School.findById(schoolId);
+            if (!school || explicitTerm.schoolBoard !== school.schoolBoard) {
+                throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected global term does not match school board');
+            }
+        }
+        return explicitTerm;
+    }
+    const activeTerm = await term_1.termService.getActiveTermForSchool(schoolId);
+    if (activeTerm) {
+        return activeTerm;
+    }
+    const school = await school_1.School.findById(schoolId);
+    if (!school) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
+    }
+    if (!school.schoolBoard) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'School does not belong to a school board');
+    }
+    const boardTerm = await term_1.termService.getActiveTermForSchoolBoard(school.schoolBoard);
+    if (boardTerm) {
+        return boardTerm;
+    }
+    throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'No active term found for this school or school board');
+};
+const queryAttendance = async (filter, options, actor, context) => {
+    const school = await resolveSchoolContext(actor, context.schoolId);
+    const term = await resolveTermForAttendance(school.id, context.termId);
+    const studentFilter = { school: school.id };
+    if (context.classId) {
+        const allowedClassIds = school.classes || [];
+        if (!allowedClassIds.includes(context.classId)) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected class does not belong to this school');
+        }
+        studentFilter.classId = context.classId;
+    }
+    const students = await student_1.Student.find(studentFilter).select('_id');
+    const studentIds = students.map((student) => student.id);
+    return attendance_model_1.default.paginate(Object.assign(Object.assign({}, filter), { school: school.id, termId: term.id, student: { $in: studentIds }, date: {
+            $gte: term.startDate,
+            $lte: term.endDate,
+        } }), options);
+};
+exports.queryAttendance = queryAttendance;
+const getAttendanceSummary = async (actor, context) => {
+    const school = await resolveSchoolContext(actor, context.schoolId);
+    const term = await resolveTermForAttendance(school.id, context.termId);
+    const studentFilter = { school: school.id };
+    if (context.classId) {
+        const allowedClassIds = school.classes || [];
+        if (!allowedClassIds.includes(context.classId)) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected class does not belong to this school');
+        }
+        studentFilter.classId = context.classId;
+    }
+    const students = await student_1.Student.find(studentFilter).sort({ lastName: 1, firstName: 1 });
+    const classIds = Array.from(new Set(students.map((student) => student.classId).filter(Boolean)));
+    const classes = classIds.length > 0 ? await class_model_1.default.find({ _id: { $in: classIds } }) : [];
+    const classById = new Map(classes.map((classItem) => [classItem.id, classItem]));
+    const records = await attendance_model_1.default.find({
+        school: school.id,
+        termId: term.id,
+        student: { $in: students.map((student) => student.id) },
+        date: {
+            $gte: term.startDate,
+            $lte: term.endDate,
+        },
+    });
+    const days = buildDayList(new Date(term.startDate), new Date(term.endDate));
+    const dayKeys = days.map((item) => item.date);
+    const byStudentDate = new Map();
+    records.forEach((record) => {
+        const studentKey = record.student;
+        const dateKey = toDateKey(new Date(record.date));
+        const rowMap = byStudentDate.get(studentKey) || new Map();
+        rowMap.set(dateKey, record.status);
+        byStudentDate.set(studentKey, rowMap);
+    });
+    const rows = students.map((student) => {
+        var _a, _b;
+        const statusMap = byStudentDate.get(student.id) || new Map();
+        const studentClass = classById.get(student.classId);
+        const statusByDate = dayKeys.reduce((acc, dateKey) => {
+            acc[dateKey] = normalizeStatus(statusMap.get(dateKey));
+            return acc;
+        }, {});
+        const daysWithRecord = dayKeys.filter((dateKey) => statusMap.has(dateKey));
+        const attendedDays = daysWithRecord.reduce((count, dateKey) => {
+            const status = normalizeStatus(statusMap.get(dateKey));
+            return ATTENDED_STATUSES.has(status) ? count + 1 : count;
+        }, 0);
+        const attendancePercentage = daysWithRecord.length > 0 ? Number(((attendedDays / daysWithRecord.length) * 100).toFixed(2)) : 0;
+        return {
+            studentId: student.id,
+            studentName: `${student.firstName} ${student.lastName}`,
+            regNumber: student.regNumber,
+            gender: student.gender,
+            classId: student.classId,
+            classCode: (_a = studentClass === null || studentClass === void 0 ? void 0 : studentClass.code) !== null && _a !== void 0 ? _a : null,
+            className: (_b = studentClass === null || studentClass === void 0 ? void 0 : studentClass.name) !== null && _b !== void 0 ? _b : null,
+            attendancePercentage,
+            statusByDate,
+        };
+    });
+    return {
+        school: {
+            id: school.id,
+            name: school.name,
+        },
+        term: {
+            id: term.id,
+            name: term.name,
+            academicSession: term.academicSession,
+            schoolBoard: term.schoolBoard,
+            school: term.school,
+            startDate: term.startDate,
+            endDate: term.endDate,
+            isActive: term.isActive,
+            resolvedScope: term.school ? 'school' : 'school-board',
+        },
+        days,
+        rows,
+    };
+};
+exports.getAttendanceSummary = getAttendanceSummary;
+const buildDateKey = (value) => value.toISOString().slice(0, 10);
+const buildDayGrid = (startDate, endDate) => {
+    return (0, attendant_dates_util_1.getWorkingDays)(startDate, endDate).map((date) => ({
+        date: buildDateKey(date),
+        label: String(new Date(date).getUTCDate()),
+    }));
+};
+const getAttendanceCalendarSummary = async (actor, context) => {
+    const school = await resolveSchoolContext(actor, context.schoolId);
+    await resolveClassContext(school.id, context.classId);
+    const term = await term_1.Term.findById(context.termId);
+    if (!term) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Term not found');
+    }
+    if (term.academicSession !== context.academicSessionId) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected term does not belong to the requested academic session');
+    }
+    if (term.school && term.school !== school.id) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected term is scoped to a different school');
+    }
+    if (!term.school && school.schoolBoard !== term.schoolBoard) {
+        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected global term does not match school board');
+    }
+    const extractions = await attendant_extraction_model_1.default.find({
+        schoolId: school.id,
+        termId: term.id,
+        academicSessionId: context.academicSessionId,
+        status: { $in: ['parsed', 'attendance_created', 'needs_review'] },
+    }).sort({ createdAt: 1 });
+    const classStudents = await student_1.Student.find({ school: school.id, classId: context.classId }).sort({ lastName: 1, firstName: 1 });
+    const reviewMap = new Map();
+    const reviewIds = extractions.flatMap((item) => item.pendingReviewIds || []);
+    if (reviewIds.length) {
+        const reviews = await attendant_review_model_1.default.find({ _id: { $in: reviewIds } });
+        reviews.forEach((review) => {
+            reviewMap.set(review.id, Object.assign({ resolvedStatus: review.resolvedStatus }, (review.resolvedStudentId ? { resolvedStudentId: review.resolvedStudentId } : {})));
+        });
+    }
+    const byStudentDate = new Map();
+    const attendanceRecords = await attendance_model_1.default.find({
+        school: school.id,
+        termId: term.id,
+        academicSessionId: context.academicSessionId,
+        source: 'attendant-extraction',
+    });
+    attendanceRecords.forEach((record) => {
+        const studentKey = record.student;
+        const dateKey = buildDateKey(new Date(record.date));
+        const statusMap = byStudentDate.get(studentKey) || new Map();
+        statusMap.set(dateKey, record.status);
+        byStudentDate.set(studentKey, statusMap);
+    });
+    const days = extractions.length
+        ? buildDayGrid(new Date(term.startDate), new Date(term.endDate))
+        : buildDayGrid(new Date(term.startDate), new Date(term.endDate));
+    const dayKeys = days.map((item) => item.date);
+    const rows = classStudents.map((student) => {
+        const statusMap = byStudentDate.get(student.id) || new Map();
+        const statusByDate = dayKeys.reduce((acc, dateKey) => {
+            acc[dateKey] = statusMap.get(dateKey) || '-';
+            return acc;
+        }, {});
+        const attendedDays = dayKeys.reduce((count, dateKey) => {
+            const status = statusMap.get(dateKey);
+            return ATTENDED_STATUSES.has(status || '') ? count + 1 : count;
+        }, 0);
+        const attendancePercentage = dayKeys.length > 0 ? Number(((attendedDays / dayKeys.length) * 100).toFixed(2)) : 0;
+        return {
+            studentId: student.id,
+            studentName: `${student.firstName} ${student.lastName}`,
+            regNumber: student.regNumber,
+            attendancePercentage,
+            statusByDate,
+        };
+    });
+    return {
+        school: {
+            id: school.id,
+            name: school.name,
+        },
+        term: {
+            id: term.id,
+            name: term.name,
+            academicSession: term.academicSession,
+            schoolBoard: term.schoolBoard,
+            school: term.school,
+            startDate: term.startDate,
+            endDate: term.endDate,
+            isActive: term.isActive,
+            resolvedScope: term.school ? 'school' : 'school-board',
+        },
+        class: {
+            id: context.classId,
+        },
+        days,
+        rows,
+        extractions: extractions.map((item) => {
+            var _a;
+            return ({
+                id: item.id,
+                status: item.status,
+                startDate: item.startDate,
+                endDate: item.endDate,
+                createdAt: item.createdAt,
+                pendingReviewCount: ((_a = item.pendingReviewIds) === null || _a === void 0 ? void 0 : _a.length) || 0,
+            });
+        }),
+        reviewSummary: {
+            pending: reviewMap.size ? Array.from(reviewMap.values()).filter((item) => item.resolvedStatus === 'pending').length : 0,
+            resolved: reviewMap.size ? Array.from(reviewMap.values()).filter((item) => item.resolvedStatus === 'resolved').length : 0,
+            ignored: reviewMap.size ? Array.from(reviewMap.values()).filter((item) => item.resolvedStatus === 'ignored').length : 0,
+        },
+    };
+};
+exports.getAttendanceCalendarSummary = getAttendanceCalendarSummary;
+//# sourceMappingURL=attendance.service.js.map
