@@ -35,6 +35,10 @@ const envVarsSchema = Joi.object()
     INTERNAL_ADMIN_EMAIL: Joi.string().trim().email().optional(),
     INTERNAL_ADMIN_PASSWORD: Joi.string().min(8).optional(),
     INTERNAL_ADMIN_ROLE: Joi.string().valid(...INTERNAL_USER_ROLES).default('super-admin'),
+    GOOGLE_CLOUD_PROJECT_ID: Joi.string().optional(),
+    GOOGLE_CLOUD_LOCATION: Joi.string().valid('us', 'eu').optional(),
+    GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID: Joi.string().optional(),
+    ATTENDANT_UPLOAD_DIR: Joi.string().optional(),
   })
   .unknown()
 
@@ -97,6 +101,12 @@ const config = {
     password: envVars.INTERNAL_ADMIN_PASSWORD,
     role: envVars.INTERNAL_ADMIN_ROLE,
   },
+  googleDocumentAi: {
+    projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
+    location: envVars.GOOGLE_CLOUD_LOCATION,
+    processorId: envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
+  },
+  attendantUploadsDir: envVars.ATTENDANT_UPLOAD_DIR || 'uploads/attendant-extractions',
 }
 
 export default config

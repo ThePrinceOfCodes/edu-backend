@@ -203,7 +203,7 @@ const run = async () => {
       throw new Error('No active term found. Activate a term before running this seed.');
     }
 
-    const activeTerm = activeTerms[0];
+    const activeTerm = activeTerms[0]!;
     const schoolBoard = await SchoolBoard.findById(activeTerm.schoolBoard);
 
     if (!schoolBoard) {
@@ -267,7 +267,7 @@ const run = async () => {
     const expectedRegNumbers: string[] = [];
 
     for (let classIndex = 0; classIndex < primaryClasses.length; classIndex += 1) {
-      const classItem = primaryClasses[classIndex];
+      const classItem = primaryClasses[classIndex]!;
 
       for (let offset = 0; offset < STUDENTS_PER_CLASS; offset += 1) {
         const studentIndex = classIndex * STUDENTS_PER_CLASS + offset;
@@ -326,10 +326,10 @@ const run = async () => {
     const attendanceWrites = [];
 
     for (let studentIndex = 0; studentIndex < students.length; studentIndex += 1) {
-      const student = students[studentIndex];
+      const student = students[studentIndex]!;
 
       for (let dayIndex = 0; dayIndex < dateRange.length; dayIndex += 1) {
-        const date = dateRange[dayIndex];
+        const date = dateRange[dayIndex]!;
         const status = getAttendanceStatus(studentIndex, dayIndex, date);
 
         attendanceWrites.push({

@@ -4,3 +4,5 @@ services:
   app:
     container_name: consize-backend-dev
     command: yarn dev -L
+    volumes:
+      - ./src:/usr/src/app/src

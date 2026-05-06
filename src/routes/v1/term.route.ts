@@ -14,6 +14,14 @@ router.get(
   termController.getActiveTerm
 );
 
+router.get(
+  '/by-date-range',
+  authenticate,
+  authorize('terms.read'),
+  validate(termValidation.getTermByDateRange),
+  termController.getTermByDateRange
+);
+
 router
   .route('/')
   .post(authenticate, authorize('terms.write'), validate(termValidation.createTerm), termController.createTerm)

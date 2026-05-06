@@ -58,3 +58,11 @@ export const getActiveTerm = {
     school: Joi.string().trim().optional(),
   }),
 };
+
+export const getTermByDateRange = {
+  query: Joi.object().keys({
+    startDate: Joi.date().iso().required(),
+    endDate: Joi.date().iso().min(Joi.ref('startDate')).required(),
+    school: Joi.string().trim().optional(),
+  }),
+};

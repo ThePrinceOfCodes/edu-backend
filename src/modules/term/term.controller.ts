@@ -37,3 +37,12 @@ export const getActiveTerm = catchAsync(async (req: Request, res: Response) => {
   const activeTerm = await termService.getActiveTermForRequest(req.account, schoolId);
   res.send(activeTerm);
 });
+
+export const getTermByDateRange = catchAsync(async (req: Request, res: Response) => {
+  const startDate = new Date(req.query['startDate'] as string);
+  const endDate = new Date(req.query['endDate'] as string);
+  const schoolId = req.query['school'] as string | undefined;
+  const schoolBoardId = req.query['schoolBoardId'] as string | undefined; 
+  const term = await termService.getTermForDateRange(startDate, endDate, req.account, schoolId, schoolBoardId);
+  res.send(term);
+});
