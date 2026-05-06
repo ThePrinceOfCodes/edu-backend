@@ -15,6 +15,8 @@ const student_route_1 = __importDefault(require("./student.route"));
 const academicSession_route_1 = __importDefault(require("./academicSession.route"));
 const term_route_1 = __importDefault(require("./term.route"));
 const attendance_route_1 = __importDefault(require("./attendance.route"));
+const attendant_extraction_route_1 = __importDefault(require("./attendant-extraction.route"));
+const attendant_review_route_1 = __importDefault(require("./attendant-review.route"));
 const messaging_route_1 = __importDefault(require("./messaging.route"));
 const events_route_1 = __importDefault(require("./events.route"));
 const router = express_1.default.Router();
@@ -62,6 +64,14 @@ const generalRoutes = [
     {
         path: '/attendance',
         route: attendance_route_1.default,
+    },
+    {
+        path: '/attendant-extractions',
+        route: attendant_extraction_route_1.default,
+    },
+    {
+        path: '/attendant-reviews',
+        route: attendant_review_route_1.default,
     },
     {
         path: '/messages',

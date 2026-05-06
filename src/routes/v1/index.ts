@@ -10,6 +10,8 @@ import studentRoute from './student.route';
 import academicSessionRoute from './academicSession.route';
 import termRoute from './term.route';
 import attendanceRoute from './attendance.route';
+import attendantExtractionRoute from './attendant-extraction.route';
+import attendantReviewRoute from './attendant-review.route';
 import messagingRoute from './messaging.route';
 import eventsRoute from './events.route';
 
@@ -63,6 +65,14 @@ const generalRoutes: IRoute[] = [
   {
     path: '/attendance',
     route: attendanceRoute,
+  },
+  {
+    path: '/attendant-extractions',
+    route: attendantExtractionRoute,
+  },
+  {
+    path: '/attendant-reviews',
+    route: attendantReviewRoute,
   },
   {
     path: '/messages',

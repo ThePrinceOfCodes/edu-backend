@@ -15,6 +15,14 @@ router.get(
 );
 
 router.get(
+  '/calendar-summary',
+  authenticate,
+  authorize('attendance.read'),
+  validate(attendanceValidation.getAttendanceCalendarSummary),
+  attendanceController.getAttendanceCalendarSummary
+);
+
+router.get(
   '/',
   authenticate,
   authorize('attendance.read'),

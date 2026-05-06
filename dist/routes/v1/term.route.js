@@ -33,6 +33,7 @@ const termValidation = __importStar(require("../../modules/term/term.validation"
 const termController = __importStar(require("../../modules/term/term.controller"));
 const router = express_1.default.Router();
 router.get('/active', auth_1.authenticate, (0, auth_1.authorize)('terms.read'), (0, validate_middleware_1.default)(termValidation.getActiveTerm), termController.getActiveTerm);
+router.get('/by-date-range', auth_1.authenticate, (0, auth_1.authorize)('terms.read'), (0, validate_middleware_1.default)(termValidation.getTermByDateRange), termController.getTermByDateRange);
 router
     .route('/')
     .post(auth_1.authenticate, (0, auth_1.authorize)('terms.write'), (0, validate_middleware_1.default)(termValidation.createTerm), termController.createTerm)

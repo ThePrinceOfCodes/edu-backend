@@ -3,10 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteTermById = exports.updateTermById = exports.getTermById = exports.queryTerms = exports.createTerm = exports.getActiveTermForRequest = exports.getActiveTermForSchool = exports.getActiveTermForSchoolBoard = void 0;
+exports.deleteTermById = exports.updateTermById = exports.getTermById = exports.queryTerms = exports.createTerm = exports.getTermForDateRange = exports.getActiveTermForRequest = exports.getActiveTermForSchool = exports.getActiveTermForSchoolBoard = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const errors_1 = require("../errors");
 const school_1 = require("../school");
+const school_board_1 = require("../school-board");
 const term_model_1 = __importDefault(require("./term.model"));
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -168,6 +169,63 @@ const getActiveTermForRequest = async (actor, schoolId) => {
     return activeTerm;
 };
 exports.getActiveTermForRequest = getActiveTermForRequest;
+const getTermForDateRange = async (startDate, endDate, actor, schoolId, schoolBoardId) => {
+    var _a;
+    let effectiveSchoolId = schoolId || null;
+    let effectiveSchoolBoardId = schoolBoardId || null;
+    if (actor.accountType !== 'internal') {
+        if (actor.role === 'school-admin' || actor.role === 'teacher' || actor.role === 'staff') {
+            if (!actor.schoolId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School context is missing for this user');
+            }
+            if (effectiveSchoolId && effectiveSchoolId !== actor.schoolId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Cannot access terms for another school');
+            }
+            effectiveSchoolId = actor.schoolId;
+        }
+        if (actor.role === 'school-board-admin') {
+            if (!actor.schoolBoardId) {
+                throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
+            }
+            if (effectiveSchoolId) {
+                const school = await school_1.School.findById(effectiveSchoolId);
+                if (!school || school.schoolBoard !== actor.schoolBoardId) {
+                    throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School is outside your school board');
+                }
+            }
+        }
+    }
+    const dateFilter = {
+        startDate: { $lte: startDate },
+        endDate: { $gte: endDate },
+    };
+    if (effectiveSchoolId || effectiveSchoolBoardId) {
+        const school = await school_1.School.findById(effectiveSchoolId);
+        if (!school)
+            throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School not found');
+        if (effectiveSchoolBoardId) {
+            const schoolBoard = await school_board_1.SchoolBoard.findById(effectiveSchoolBoardId);
+            if (!schoolBoard)
+                throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'School Board not found');
+        }
+        const schoolTerm = effectiveSchoolId ? await term_model_1.default.findOne(Object.assign({ school: effectiveSchoolId }, dateFilter)).sort({ startDate: -1 }) : await term_model_1.default.findOne(Object.assign({ schoolBoard: effectiveSchoolBoardId }, dateFilter)).sort({ startDate: -1 });
+        if (schoolTerm)
+            return schoolTerm;
+        const boardId = (_a = school === null || school === void 0 ? void 0 : school.schoolBoard) !== null && _a !== void 0 ? _a : effectiveSchoolBoardId;
+        if (boardId) {
+            const boardTerm = await term_model_1.default.findOne(Object.assign(Object.assign({}, buildBoardWideTermFilter(boardId)), dateFilter)).sort({ startDate: -1 });
+            if (boardTerm)
+                return boardTerm;
+        }
+    }
+    else if (actor.accountType === 'internal') {
+        const term = await term_model_1.default.findOne(dateFilter).sort({ startDate: -1 });
+        if (term)
+            return term;
+    }
+    throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'No term found that covers the supplied date range for this school / school board');
+};
+exports.getTermForDateRange = getTermForDateRange;
 const createTerm = async (payload, actor) => {
     if (actor.role !== 'school-board-admin' && actor.role !== 'school-admin') {
         throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Only school board admin and school admin can create terms');

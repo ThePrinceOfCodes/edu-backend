@@ -37,6 +37,10 @@ const envVarsSchema = joi_1.default.object()
     INTERNAL_ADMIN_EMAIL: joi_1.default.string().trim().email().optional(),
     INTERNAL_ADMIN_PASSWORD: joi_1.default.string().min(8).optional(),
     INTERNAL_ADMIN_ROLE: joi_1.default.string().valid(...user_constants_1.INTERNAL_USER_ROLES).default('super-admin'),
+    GOOGLE_CLOUD_PROJECT_ID: joi_1.default.string().optional(),
+    GOOGLE_CLOUD_LOCATION: joi_1.default.string().valid('us', 'eu').optional(),
+    GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID: joi_1.default.string().optional(),
+    ATTENDANT_UPLOAD_DIR: joi_1.default.string().optional(),
 })
     .unknown();
 const { value: envVars, error } = envVarsSchema.prefs({ errors: { label: 'key' } }).validate(process.env);
@@ -96,6 +100,12 @@ const config = {
         password: envVars.INTERNAL_ADMIN_PASSWORD,
         role: envVars.INTERNAL_ADMIN_ROLE,
     },
+    googleDocumentAi: {
+        projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
+        location: envVars.GOOGLE_CLOUD_LOCATION,
+        processorId: envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
+    },
+    attendantUploadsDir: envVars.ATTENDANT_UPLOAD_DIR || 'uploads/attendant-extractions',
 };
 exports.default = config;
 //# sourceMappingURL=config.js.map

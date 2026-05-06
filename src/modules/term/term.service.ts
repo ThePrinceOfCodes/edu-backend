@@ -2,8 +2,10 @@ import httpStatus from 'http-status';
 import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
 import { School } from '../school';
+import { SchoolBoard } from '../school-board';
 import Term from './term.model';
 import { ITerm } from './term.interfaces';
+
 
 type CreateTermPayload = Omit<ITerm, 'name' | 'schoolBoard' | 'school'> & {
   schoolBoard?: string;
@@ -230,6 +232,88 @@ export const getActiveTermForRequest = async (actor: IUserDoc, schoolId?: string
   }
 
   return activeTerm;
+};
+
+export const getTermForDateRange = async (
+  startDate: Date,
+  endDate: Date,
+  actor: IUserDoc,
+  schoolId?: string,
+  schoolBoardId?: string,
+) => {
+  let effectiveSchoolId = schoolId || null;
+  let effectiveSchoolBoardId = schoolBoardId || null;
+
+  if (actor.accountType !== 'internal') {
+    if (actor.role === 'school-admin' || actor.role === 'teacher' || actor.role === 'staff') {
+      if (!actor.schoolId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'School context is missing for this user');
+      }
+
+      if (effectiveSchoolId && effectiveSchoolId !== actor.schoolId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Cannot access terms for another school');
+      }
+
+      effectiveSchoolId = actor.schoolId;
+    }
+
+    if (actor.role === 'school-board-admin') {
+      if (!actor.schoolBoardId) {
+        throw new ApiError(httpStatus.FORBIDDEN, 'School board context is missing for this user');
+      }
+
+      if (effectiveSchoolId) {
+        const school = await School.findById(effectiveSchoolId);
+        if (!school || school.schoolBoard !== actor.schoolBoardId) {
+          throw new ApiError(httpStatus.FORBIDDEN, 'School is outside your school board');
+        }
+      }
+    }
+  }
+
+  const dateFilter = {
+    startDate: { $lte: startDate },
+    endDate: { $gte: endDate },
+  };
+
+  if (effectiveSchoolId || effectiveSchoolBoardId) {
+    const school = await School.findById(effectiveSchoolId);
+    if (!school) throw new ApiError(httpStatus.NOT_FOUND, 'School not found');
+
+    if(effectiveSchoolBoardId) {
+      const schoolBoard = await SchoolBoard.findById(effectiveSchoolBoardId);
+      if (!schoolBoard) throw new ApiError(httpStatus.NOT_FOUND, 'School Board not found');
+    }
+
+    const schoolTerm = effectiveSchoolId ? await Term.findOne({
+      school: effectiveSchoolId,
+      ...dateFilter,
+    }).sort({ startDate: -1 }) : await Term.findOne({
+      schoolBoard: effectiveSchoolBoardId,
+      ...dateFilter,
+    }).sort({ startDate: -1 });
+
+    if (schoolTerm) return schoolTerm;
+
+    const boardId = school?.schoolBoard ?? effectiveSchoolBoardId;
+    if (boardId) {
+      const boardTerm = await Term.findOne({
+        ...buildBoardWideTermFilter(boardId),
+        ...dateFilter,
+      }).sort({ startDate: -1 });
+
+      if (boardTerm) return boardTerm;
+    }
+
+  } else if (actor.accountType === 'internal') {
+    const term = await Term.findOne(dateFilter).sort({ startDate: -1 });
+    if (term) return term;
+  }
+
+  throw new ApiError(
+    httpStatus.NOT_FOUND,
+    'No term found that covers the supplied date range for this school / school board',
+  );
 };
 
 export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) => {

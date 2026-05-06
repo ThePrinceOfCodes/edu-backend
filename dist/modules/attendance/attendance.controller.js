@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAttendanceSummary = exports.getAttendance = void 0;
+exports.getAttendanceCalendarSummary = exports.getAttendanceSummary = exports.getAttendance = void 0;
 const utils_1 = require("../utils");
 const attendanceService = __importStar(require("./attendance.service"));
 exports.getAttendance = (0, utils_1.catchAsync)(async (req, res) => {
@@ -52,6 +52,19 @@ exports.getAttendanceSummary = (0, utils_1.catchAsync)(async (req, res) => {
         context.termId = termId;
     }
     const summary = await attendanceService.getAttendanceSummary(req.account, context);
+    res.send(summary);
+});
+exports.getAttendanceCalendarSummary = (0, utils_1.catchAsync)(async (req, res) => {
+    const classId = req.query['classId'];
+    const schoolId = req.query['schoolId'];
+    const termId = req.query['termId'];
+    const academicSessionId = req.query['academicSessionId'];
+    const summary = await attendanceService.getAttendanceCalendarSummary(req.account, {
+        classId,
+        schoolId,
+        termId,
+        academicSessionId,
+    });
     res.send(summary);
 });
 //# sourceMappingURL=attendance.controller.js.map

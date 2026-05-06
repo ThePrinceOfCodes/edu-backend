@@ -37,3 +37,19 @@ export const getAttendanceSummary = catchAsync(async (req: Request, res: Respons
 
   res.send(summary);
 });
+
+export const getAttendanceCalendarSummary = catchAsync(async (req: Request, res: Response) => {
+  const classId = req.query['classId'] as string;
+  const schoolId = req.query['schoolId'] as string;
+  const termId = req.query['termId'] as string;
+  const academicSessionId = req.query['academicSessionId'] as string;
+
+  const summary = await attendanceService.getAttendanceCalendarSummary(req.account, {
+    classId,
+    schoolId,
+    termId,
+    academicSessionId,
+  });
+
+  res.send(summary);
+});

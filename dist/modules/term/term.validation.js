@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getActiveTerm = exports.deleteTerm = exports.updateTerm = exports.getTerm = exports.getTerms = exports.createTerm = void 0;
+exports.getTermByDateRange = exports.getActiveTerm = exports.deleteTerm = exports.updateTerm = exports.getTerm = exports.getTerms = exports.createTerm = void 0;
 const joi_1 = __importDefault(require("joi"));
 exports.createTerm = {
     body: joi_1.default.object().keys({
@@ -55,6 +55,13 @@ exports.deleteTerm = {
 };
 exports.getActiveTerm = {
     query: joi_1.default.object().keys({
+        school: joi_1.default.string().trim().optional(),
+    }),
+};
+exports.getTermByDateRange = {
+    query: joi_1.default.object().keys({
+        startDate: joi_1.default.date().iso().required(),
+        endDate: joi_1.default.date().iso().min(joi_1.default.ref('startDate')).required(),
         school: joi_1.default.string().trim().optional(),
     }),
 };

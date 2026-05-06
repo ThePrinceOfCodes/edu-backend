@@ -33,6 +33,7 @@ const attendanceValidation = __importStar(require("../../modules/attendance/atte
 const attendanceController = __importStar(require("../../modules/attendance/attendance.controller"));
 const router = express_1.default.Router();
 router.get('/summary', auth_1.authenticate, (0, auth_1.authorize)('attendance.read'), (0, validate_middleware_1.default)(attendanceValidation.getAttendanceSummary), attendanceController.getAttendanceSummary);
+router.get('/calendar-summary', auth_1.authenticate, (0, auth_1.authorize)('attendance.read'), (0, validate_middleware_1.default)(attendanceValidation.getAttendanceCalendarSummary), attendanceController.getAttendanceCalendarSummary);
 router.get('/', auth_1.authenticate, (0, auth_1.authorize)('attendance.read'), (0, validate_middleware_1.default)(attendanceValidation.getAttendance), attendanceController.getAttendance);
 exports.default = router;
 //# sourceMappingURL=attendance.route.js.map

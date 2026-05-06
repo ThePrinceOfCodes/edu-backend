@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getActiveTerm = exports.deleteTerm = exports.updateTerm = exports.getTerm = exports.getTerms = exports.createTerm = void 0;
+exports.getTermByDateRange = exports.getActiveTerm = exports.deleteTerm = exports.updateTerm = exports.getTerm = exports.getTerms = exports.createTerm = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const utils_1 = require("../utils");
 const termService = __importStar(require("./term.service"));
@@ -57,5 +57,13 @@ exports.getActiveTerm = (0, utils_1.catchAsync)(async (req, res) => {
     const schoolId = req.query['school'];
     const activeTerm = await termService.getActiveTermForRequest(req.account, schoolId);
     res.send(activeTerm);
+});
+exports.getTermByDateRange = (0, utils_1.catchAsync)(async (req, res) => {
+    const startDate = new Date(req.query['startDate']);
+    const endDate = new Date(req.query['endDate']);
+    const schoolId = req.query['school'];
+    const schoolBoardId = req.query['schoolBoardId'];
+    const term = await termService.getTermForDateRange(startDate, endDate, req.account, schoolId, schoolBoardId);
+    res.send(term);
 });
 //# sourceMappingURL=term.controller.js.map
