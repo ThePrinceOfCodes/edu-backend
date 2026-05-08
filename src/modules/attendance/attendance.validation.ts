@@ -32,11 +32,4 @@ export const getAttendanceCalendarSummary = {
   }),
 };
 
-export const getAttendanceCalendarSummary = {
-  query: Joi.object().keys({
-    classId: Joi.string().required(),
-    schoolId: Joi.string().required(),
-    termId: Joi.string().required(),
-    academicSessionId: Joi.string().required(),
-  }),
-};
+

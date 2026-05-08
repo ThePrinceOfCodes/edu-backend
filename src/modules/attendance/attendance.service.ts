@@ -1,7 +1,7 @@
 import httpStatus from 'http-status';
 import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
-import ClassModel from '../class/class.model';
+
 import { School } from '../school';
 import { ClassModel } from '../class';
 import { Student } from '../student';
@@ -30,12 +30,7 @@ type CalendarSummaryContext = {
   publicBaseUrl?: string;
 };
 
-type CalendarSummaryContext = {
-  classId: string;
-  schoolId: string;
-  termId: string;
-  academicSessionId: string;
-};
+
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -522,137 +517,3 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
   };
 };
 
-const buildDateKey = (value: Date) => value.toISOString().slice(0, 10);
-
-const buildDayGrid = (startDate: Date, endDate: Date) => {
-  return getWorkingDays(startDate, endDate).map((date) => ({
-    date: buildDateKey(date),
-    label: String(new Date(date).getUTCDate()),
-  }));
-};
-
-export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: CalendarSummaryContext) => {
-  const school = await resolveSchoolContext(actor, context.schoolId);
-  await resolveClassContext(school.id, context.classId);
-
-  const term = await Term.findById(context.termId);
-  if (!term) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
-  }
-
-  if (term.academicSession !== context.academicSessionId) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term does not belong to the requested academic session');
-  }
-
-  if (term.school && term.school !== school.id) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term is scoped to a different school');
-  }
-
-  if (!term.school && school.schoolBoard !== term.schoolBoard) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Selected global term does not match school board');
-  }
-
-  const extractions = await AttendantExtraction.find({
-    schoolId: school.id,
-    termId: term.id,
-    academicSessionId: context.academicSessionId,
-    status: { $in: ['parsed', 'attendance_created', 'needs_review'] },
-  }).sort({ createdAt: 1 });
-
-  const classStudents = await Student.find({ school: school.id, classId: context.classId }).sort({ lastName: 1, firstName: 1 });
-
-  const reviewMap = new Map<string, { resolvedStatus: string; resolvedStudentId?: string }>();
-  const reviewIds = extractions.flatMap((item) => item.pendingReviewIds || []);
-  if (reviewIds.length) {
-    const reviews = await AttendantReview.find({ _id: { $in: reviewIds } });
-    reviews.forEach((review) => {
-      reviewMap.set(review.id, {
-        resolvedStatus: review.resolvedStatus,
-        ...(review.resolvedStudentId ? { resolvedStudentId: review.resolvedStudentId } : {}),
-      });
-    });
-  }
-
-  const byStudentDate = new Map<string, Map<string, string>>();
-
-  const attendanceRecords = await Attendance.find({
-    school: school.id,
-    termId: term.id,
-    academicSessionId: context.academicSessionId,
-    source: 'attendant-extraction',
-  });
-
-  attendanceRecords.forEach((record) => {
-    const studentKey = record.student;
-    const dateKey = buildDateKey(new Date(record.date));
-
-    const statusMap = byStudentDate.get(studentKey) || new Map<string, string>();
-    statusMap.set(dateKey, record.status);
-    byStudentDate.set(studentKey, statusMap);
-  });
-
-  const days = extractions.length
-    ? buildDayGrid(new Date(term.startDate), new Date(term.endDate))
-    : buildDayGrid(new Date(term.startDate), new Date(term.endDate));
-
-  const dayKeys = days.map((item) => item.date);
-
-  const rows = classStudents.map((student) => {
-    const statusMap = byStudentDate.get(student.id) || new Map<string, string>();
-    const statusByDate = dayKeys.reduce((acc: Record<string, string>, dateKey) => {
-      acc[dateKey] = statusMap.get(dateKey) || '-';
-      return acc;
-    }, {});
-
-    const attendedDays = dayKeys.reduce((count, dateKey) => {
-      const status = statusMap.get(dateKey);
-      return ATTENDED_STATUSES.has(status || '') ? count + 1 : count;
-    }, 0);
-
-    const attendancePercentage = dayKeys.length > 0 ? Number(((attendedDays / dayKeys.length) * 100).toFixed(2)) : 0;
-
-    return {
-      studentId: student.id,
-      studentName: `${student.firstName} ${student.lastName}`,
-      regNumber: student.regNumber,
-      attendancePercentage,
-      statusByDate,
-    };
-  });
-
-  return {
-    school: {
-      id: school.id,
-      name: school.name,
-    },
-    term: {
-      id: term.id,
-      name: term.name,
-      academicSession: term.academicSession,
-      schoolBoard: term.schoolBoard,
-      school: term.school,
-      startDate: term.startDate,
-      endDate: term.endDate,
-      isActive: term.isActive,
-      resolvedScope: term.school ? 'school' : 'school-board',
-    },
-    class: {
-      id: context.classId,
-    },
-    days,
-    rows,
-    extractions: extractions.map((item) => ({
-      id: item.id,
-      status: item.status,
-      startDate: item.startDate,
-      endDate: item.endDate,
-      createdAt: (item as any).createdAt,
-      pendingReviewCount: item.pendingReviewIds?.length || 0,
-    })),
-    reviewSummary: {
-      pending: reviewMap.size ? Array.from(reviewMap.values()).filter((item) => item.resolvedStatus === 'pending').length : 0,
-      resolved: reviewMap.size ? Array.from(reviewMap.values()).filter((item) => item.resolvedStatus === 'resolved').length : 0,
-      ignored: reviewMap.size ? Array.from(reviewMap.values()).filter((item) => item.resolvedStatus === 'ignored').length : 0,
-    },
-  };
-};
