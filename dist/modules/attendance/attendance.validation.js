@@ -9,6 +9,7 @@ exports.getAttendance = {
     query: joi_1.default.object().keys({
         school: joi_1.default.string().trim().optional(),
         termId: joi_1.default.string().trim().optional(),
+        classId: joi_1.default.string().trim().optional(),
         student: joi_1.default.string().trim().optional(),
         status: joi_1.default.string().valid('present', 'absent', 'late', 'excused').optional(),
         sortBy: joi_1.default.string(),
@@ -20,6 +21,15 @@ exports.getAttendanceSummary = {
     query: joi_1.default.object().keys({
         school: joi_1.default.string().trim().optional(),
         termId: joi_1.default.string().trim().optional(),
+        classId: joi_1.default.string().trim().optional(),
+    }),
+};
+exports.getAttendanceCalendarSummary = {
+    query: joi_1.default.object().keys({
+        classId: joi_1.default.string().required(),
+        schoolId: joi_1.default.string().required(),
+        termId: joi_1.default.string().required(),
+        academicSessionId: joi_1.default.string().required(),
     }),
 };
 exports.getAttendanceCalendarSummary = {

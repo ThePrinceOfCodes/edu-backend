@@ -47,6 +47,11 @@ const schoolSchema = new mongoose_1.default.Schema({
         trim: true,
         default: null,
     },
+    schoolCode: {
+        type: String,
+        trim: true,
+        default: null,
+    },
     state: {
         type: String,
         trim: true,
@@ -62,12 +67,92 @@ const schoolSchema = new mongoose_1.default.Schema({
         trim: true,
         default: null,
     },
+    ward: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    schoolLocation: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    categoryOfSchool: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    accessRoadCondition: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    typeOfSchool: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    shiftSystem: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    facilitiesAvailable: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    headTeacherName: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    headTeacherPhoneNumber: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    assistantHeadTeacherName: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    assistantHeadTeacherPhoneNumber: {
+        type: String,
+        trim: true,
+        default: null,
+    },
     longitude: {
         type: Number,
         default: null,
     },
     latitude: {
         type: Number,
+        default: null,
+    },
+    numberOfClasses: {
+        type: Number,
+        default: null,
+    },
+    numberOfClassroomsAvailable: {
+        type: Number,
+        default: null,
+    },
+    numberOfAcademicStaff: {
+        type: Number,
+        default: null,
+    },
+    numberOfNonAcademicStaff: {
+        type: Number,
+        default: null,
+    },
+    totalEnrolledStudents: {
+        type: Number,
+        default: null,
+    },
+    gallery: {
+        type: String,
+        trim: true,
         default: null,
     },
     status: {

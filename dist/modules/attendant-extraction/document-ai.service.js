@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processDocument = void 0;
+exports.buildDocumentAiLayoutSummary = exports.processDocument = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const documentai_1 = require("@google-cloud/documentai");
@@ -45,4 +45,22 @@ const processDocument = async (filePath, mimeType) => {
     return result.document;
 };
 exports.processDocument = processDocument;
+const buildDocumentAiLayoutSummary = (document) => {
+    const pages = Array.isArray(document === null || document === void 0 ? void 0 : document.pages) ? document.pages : [];
+    const entities = Array.isArray(document === null || document === void 0 ? void 0 : document.entities) ? document.entities : [];
+    const formFields = pages.reduce((count, page) => { var _a; return count + (((_a = page === null || page === void 0 ? void 0 : page.formFields) === null || _a === void 0 ? void 0 : _a.length) || 0); }, 0);
+    const tables = pages.reduce((count, page) => { var _a; return count + (((_a = page === null || page === void 0 ? void 0 : page.tables) === null || _a === void 0 ? void 0 : _a.length) || 0); }, 0);
+    return {
+        pageCount: pages.length,
+        textLength: typeof (document === null || document === void 0 ? void 0 : document.text) === 'string' ? document.text.length : 0,
+        formFieldCount: formFields,
+        tableCount: tables,
+        entityMentions: entities.slice(0, 25).map((entity) => ({
+            type: (entity === null || entity === void 0 ? void 0 : entity.type) || '',
+            mentionText: (entity === null || entity === void 0 ? void 0 : entity.mentionText) || '',
+            confidence: typeof (entity === null || entity === void 0 ? void 0 : entity.confidence) === 'number' ? entity.confidence : null,
+        })),
+    };
+};
+exports.buildDocumentAiLayoutSummary = buildDocumentAiLayoutSummary;
 //# sourceMappingURL=document-ai.service.js.map

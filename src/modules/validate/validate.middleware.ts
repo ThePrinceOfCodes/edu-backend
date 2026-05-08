@@ -14,7 +14,7 @@ const validate =
       .validate(object, { stripUnknown: false, allowUnknown: true }); // Allow unknown fields
 
     if (error) {
-      const errorMessage = error.details.map((details) => details.message).join(', ');
+      const errorMessage = error.details.map((details: any) => details.message).join(', ');
       console.log('Validation error details:', error.details); // Debug log
       return next(new ApiError(httpStatus.BAD_REQUEST, errorMessage.replace(/"/g, '')));
     }

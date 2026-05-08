@@ -21,6 +21,7 @@ Base path: `/v1`
 | Attendant reviews | `/attendant-reviews` |
 | Messages | `/messages` |
 | Events | `/events` |
+| FCM token | `/fcm-token` |
 
 ## Routes
 
@@ -160,6 +161,14 @@ Response notes:
 | GET | `/attendant-reviews` | Query: `extractionId?, sortBy, limit, page` | service-defined list | pending reviews only |
 | PATCH | `/attendant-reviews/:id` | `{ resolvedStudentId?, resolvedStatus? }` | review entity | `attendance.write` |
 | POST | `/attendant-reviews/bulk-resolve` | `{ reviewIds[], resolvedStudentId?, resolvedStatus? }` | bulk result | `attendance.write` |
+
+### FCM Token
+
+| Method | Path | Request body / query | Response body | Notes |
+| --- | --- | --- | --- | --- |
+| POST | `/fcm-token` | `{ fcm_token, platform?, deviceId? }` | token entity | `authenticate` |
+| DELETE | `/fcm-token` | `{ fcm_token, platform?, deviceId? }` | `204` | `authenticate` |
+| POST | `/fcm-token/test` | `{ userIds[], title, body, data? }` | send summary | `authenticate`, `requireInternalUser` |
 
 ### Messages
 

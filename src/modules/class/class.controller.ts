@@ -13,7 +13,8 @@ export const createClass = catchAsync(async (req: Request, res: Response) => {
 export const getClasses = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, ['name', 'code', 'schoolTypeId']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  const result = await classService.queryClasses(filter, options);
+  const requestedSchoolId = req.query['schoolId'] as string | undefined;
+  const result = await classService.queryClasses(filter, options, req.account as any, requestedSchoolId);
   res.send(result);
 });
 

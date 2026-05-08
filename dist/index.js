@@ -9,6 +9,7 @@ const app_1 = __importDefault(require("./app"));
 const config_1 = __importDefault(require("./config/config"));
 const logger_1 = __importDefault(require("./modules/logger/logger"));
 const user_seed_1 = require("./modules/users/user.seed");
+require("./modules/attendant-extraction/attendant-extraction.worker");
 let server;
 // Create HTTP server using Express app
 server = http_1.default.createServer(app_1.default);

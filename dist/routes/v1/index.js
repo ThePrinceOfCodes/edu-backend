@@ -19,6 +19,7 @@ const attendant_extraction_route_1 = __importDefault(require("./attendant-extrac
 const attendant_review_route_1 = __importDefault(require("./attendant-review.route"));
 const messaging_route_1 = __importDefault(require("./messaging.route"));
 const events_route_1 = __importDefault(require("./events.route"));
+const push_notification_route_1 = __importDefault(require("./push-notification.route"));
 const router = express_1.default.Router();
 const generalRoutes = [
     {
@@ -80,6 +81,10 @@ const generalRoutes = [
     {
         path: '/events',
         route: events_route_1.default,
+    },
+    {
+        path: '/fcm-token',
+        route: push_notification_route_1.default,
     },
 ];
 router.get("/", (_, res) => {

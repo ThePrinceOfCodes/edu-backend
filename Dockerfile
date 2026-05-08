@@ -7,7 +7,7 @@ RUN npm install -g pnpm
 WORKDIR /usr/src/app
 
 # Copy lockfile and package.json
-COPY package.json pnpm-lock.yaml tsconfig.json ecosystem.config.js tsconfig-paths-bootstrap.js ./
+COPY package.json pnpm-lock.yaml tsconfig.json  ./
 
 # Install all deps (including devDeps for compilation)
 RUN pnpm install --frozen-lockfile --ignore-scripts
@@ -25,7 +25,7 @@ WORKDIR /usr/src/app
 ENV NODE_ENV=production
 
 # Copy only production files
-COPY package.json pnpm-lock.yaml tsconfig.json ecosystem.config.js tsconfig-paths-bootstrap.js ./
+# COPY package.json pnpm-lock.yaml tsconfig.json ecosystem.config.js tsconfig-paths-bootstrap.js ./
 
 # Install only production dependencies
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts

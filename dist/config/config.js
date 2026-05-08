@@ -40,7 +40,16 @@ const envVarsSchema = joi_1.default.object()
     GOOGLE_CLOUD_PROJECT_ID: joi_1.default.string().optional(),
     GOOGLE_CLOUD_LOCATION: joi_1.default.string().valid('us', 'eu').optional(),
     GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID: joi_1.default.string().optional(),
+    DOCUMENT_AI_PROCESSOR_ID: joi_1.default.string().optional(),
+    OPENAI_API_KEY: joi_1.default.string().allow('').optional(),
+    GEMINI_API_KEY: joi_1.default.string().allow('').optional(),
+    ANTHROPIC_API_KEY: joi_1.default.string().allow('').optional(),
+    PUSH_NOTIFICATIONS_ENABLED: joi_1.default.boolean().truthy('true').falsy('false').default(true),
     ATTENDANT_UPLOAD_DIR: joi_1.default.string().optional(),
+    ATTENDANT_EXTRACTION_USE_PI: joi_1.default.boolean().truthy('true').falsy('false').default(true),
+    ATTENDANT_EXTRACTION_PROVIDER: joi_1.default.string().valid('google', 'openai', 'anthropic').optional(),
+    ATTENDANT_EXTRACTION_MODEL: joi_1.default.string().trim().optional(),
+    ATTENDANT_EXTRACTION_MAX_UPLOAD_MB: joi_1.default.number().integer().min(1).default(10),
 })
     .unknown();
 const { value: envVars, error } = envVarsSchema.prefs({ errors: { label: 'key' } }).validate(process.env);
@@ -103,9 +112,24 @@ const config = {
     googleDocumentAi: {
         projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
         location: envVars.GOOGLE_CLOUD_LOCATION,
-        processorId: envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
+        processorId: envVars.DOCUMENT_AI_PROCESSOR_ID || envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
+    },
+    pushNotifications: {
+        enabled: envVars.PUSH_NOTIFICATIONS_ENABLED,
+        projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
     },
     attendantUploadsDir: envVars.ATTENDANT_UPLOAD_DIR || 'uploads/attendant-extractions',
+    attendanceExtraction: {
+        usePi: envVars.ATTENDANT_EXTRACTION_USE_PI,
+        provider: envVars.ATTENDANT_EXTRACTION_PROVIDER,
+        model: envVars.ATTENDANT_EXTRACTION_MODEL,
+        maxUploadMb: envVars.ATTENDANT_EXTRACTION_MAX_UPLOAD_MB,
+        apiKeys: {
+            openai: envVars.OPENAI_API_KEY,
+            google: envVars.GEMINI_API_KEY,
+            anthropic: envVars.ANTHROPIC_API_KEY,
+        },
+    },
 };
 exports.default = config;
 //# sourceMappingURL=config.js.map

@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAttendanceCalendarSummary = exports.getAttendanceSummary = exports.queryAttendance = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const errors_1 = require("../errors");
+const class_model_1 = __importDefault(require("../class/class.model"));
 const school_1 = require("../school");
 const class_1 = require("../class");
 const student_1 = require("../student");
@@ -14,8 +15,21 @@ const attendance_model_1 = __importDefault(require("./attendance.model"));
 const attendant_extraction_model_1 = __importDefault(require("../attendant-extraction/attendant-extraction.model"));
 const attendant_review_model_1 = __importDefault(require("../attendant-review/attendant-review.model"));
 const attendant_dates_util_1 = require("../attendant-extraction/attendant-dates.util");
-const ATTENDED_STATUSES = new Set(['present', 'late', 'excused']);
+const ATTENDED_STATUSES = new Set(['present']);
 const toDateKey = (value) => value.toISOString().slice(0, 10);
+const isWeekend = (date) => {
+    const day = date.getUTCDay();
+    return day === 0 || day === 6;
+};
+const normalizeStatus = (status) => {
+    if (!status)
+        return '-';
+    if (status === 'present' || status === 'late')
+        return 'present';
+    if (status === 'absent' || status === 'excused')
+        return 'absent';
+    return '-';
+};
 const buildDayList = (startDate, endDate) => {
     const days = [];
     const current = new Date(startDate);
@@ -23,12 +37,14 @@ const buildDayList = (startDate, endDate) => {
     const last = new Date(endDate);
     last.setUTCHours(0, 0, 0, 0);
     while (current <= last) {
-        const date = toDateKey(current);
-        const dayOfMonth = new Date(current).getUTCDate();
-        days.push({
-            date,
-            label: String(dayOfMonth),
-        });
+        if (!isWeekend(current)) {
+            const date = toDateKey(current);
+            const dayOfMonth = current.getUTCDate();
+            days.push({
+                date,
+                label: String(dayOfMonth),
+            });
+        }
         current.setUTCDate(current.getUTCDate() + 1);
     }
     return days;
@@ -67,7 +83,7 @@ const resolveSchoolContext = async (actor, schoolId) => {
     return school;
 };
 const resolveClassContext = async (schoolId, classId) => {
-    const classDoc = await class_1.ClassModel.findById(classId);
+    const classDoc = await class_model_1.default.findById(classId);
     if (!classDoc) {
         throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Class not found');
     }
@@ -116,7 +132,17 @@ const resolveTermForAttendance = async (schoolId, termId) => {
 const queryAttendance = async (filter, options, actor, context) => {
     const school = await resolveSchoolContext(actor, context.schoolId);
     const term = await resolveTermForAttendance(school.id, context.termId);
-    return attendance_model_1.default.paginate(Object.assign(Object.assign({}, filter), { school: school.id, termId: term.id, date: {
+    const studentFilter = { school: school.id };
+    if (context.classId) {
+        const allowedClassIds = school.classes || [];
+        if (!allowedClassIds.includes(context.classId)) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected class does not belong to this school');
+        }
+        studentFilter.classId = context.classId;
+    }
+    const students = await student_1.Student.find(studentFilter).select('_id');
+    const studentIds = students.map((student) => student.id);
+    return attendance_model_1.default.paginate(Object.assign(Object.assign({}, filter), { school: school.id, termId: term.id, student: { $in: studentIds }, date: {
             $gte: term.startDate,
             $lte: term.endDate,
         } }), options);
@@ -125,10 +151,22 @@ exports.queryAttendance = queryAttendance;
 const getAttendanceSummary = async (actor, context) => {
     const school = await resolveSchoolContext(actor, context.schoolId);
     const term = await resolveTermForAttendance(school.id, context.termId);
-    const students = await student_1.Student.find({ school: school.id }).sort({ lastName: 1, firstName: 1 });
+    const studentFilter = { school: school.id };
+    if (context.classId) {
+        const allowedClassIds = school.classes || [];
+        if (!allowedClassIds.includes(context.classId)) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected class does not belong to this school');
+        }
+        studentFilter.classId = context.classId;
+    }
+    const students = await student_1.Student.find(studentFilter).sort({ lastName: 1, firstName: 1 });
+    const classIds = Array.from(new Set(students.map((student) => student.classId).filter(Boolean)));
+    const classes = classIds.length > 0 ? await class_model_1.default.find({ _id: { $in: classIds } }) : [];
+    const classById = new Map(classes.map((classItem) => [classItem.id, classItem]));
     const records = await attendance_model_1.default.find({
         school: school.id,
         termId: term.id,
+        student: { $in: students.map((student) => student.id) },
         date: {
             $gte: term.startDate,
             $lte: term.endDate,
@@ -145,20 +183,27 @@ const getAttendanceSummary = async (actor, context) => {
         byStudentDate.set(studentKey, rowMap);
     });
     const rows = students.map((student) => {
+        var _a, _b;
         const statusMap = byStudentDate.get(student.id) || new Map();
+        const studentClass = classById.get(student.classId);
         const statusByDate = dayKeys.reduce((acc, dateKey) => {
-            acc[dateKey] = statusMap.get(dateKey) || '-';
+            acc[dateKey] = normalizeStatus(statusMap.get(dateKey));
             return acc;
         }, {});
-        const attendedDays = dayKeys.reduce((count, dateKey) => {
-            const status = statusMap.get(dateKey);
-            return ATTENDED_STATUSES.has(status || '') ? count + 1 : count;
+        const daysWithRecord = dayKeys.filter((dateKey) => statusMap.has(dateKey));
+        const attendedDays = daysWithRecord.reduce((count, dateKey) => {
+            const status = normalizeStatus(statusMap.get(dateKey));
+            return ATTENDED_STATUSES.has(status) ? count + 1 : count;
         }, 0);
-        const attendancePercentage = dayKeys.length > 0 ? Number(((attendedDays / dayKeys.length) * 100).toFixed(2)) : 0;
+        const attendancePercentage = daysWithRecord.length > 0 ? Number(((attendedDays / daysWithRecord.length) * 100).toFixed(2)) : 0;
         return {
             studentId: student.id,
             studentName: `${student.firstName} ${student.lastName}`,
             regNumber: student.regNumber,
+            gender: student.gender,
+            classId: student.classId,
+            classCode: (_a = studentClass === null || studentClass === void 0 ? void 0 : studentClass.code) !== null && _a !== void 0 ? _a : null,
+            className: (_b = studentClass === null || studentClass === void 0 ? void 0 : studentClass.name) !== null && _b !== void 0 ? _b : null,
             attendancePercentage,
             statusByDate,
         };

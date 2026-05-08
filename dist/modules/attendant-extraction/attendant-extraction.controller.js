@@ -26,14 +26,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listExtractions = exports.getExtraction = exports.createExtraction = void 0;
+exports.exportExtraction = exports.approveExtraction = exports.correctExtraction = exports.listPendingReviewExtractions = exports.listExtractions = exports.getExtraction = exports.createExtraction = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const utils_1 = require("../utils");
 const attendantExtractionService = __importStar(require("./attendant-extraction.service"));
+const attendanceCorrectionService = __importStar(require("./attendance-correction.service"));
+const attendanceExportService = __importStar(require("./attendance-export.service"));
 const attendant_extraction_model_1 = __importDefault(require("./attendant-extraction.model"));
 const errors_1 = require("../errors");
 exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     const file = req.file;
     const schoolId = (((_a = req.body) === null || _a === void 0 ? void 0 : _a['schoolId']) || ((_b = req.query) === null || _b === void 0 ? void 0 : _b['schoolId']) || ((_c = req.account) === null || _c === void 0 ? void 0 : _c['schoolId']));
     const termId = (((_d = req.body) === null || _d === void 0 ? void 0 : _d['termId']) || ((_e = req.query) === null || _e === void 0 ? void 0 : _e['termId']));
@@ -52,8 +54,9 @@ exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'endDate is required and must be a valid date');
     if (startDate > endDate)
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'startDate must be before or equal to endDate');
-    const imagePath = await attendantExtractionService.saveUpload(file);
-    const extraction = await attendantExtractionService.createExtractionJob(imagePath, {
+    const upload = await attendantExtractionService.saveUpload(file);
+    const extraction = await attendantExtractionService.createExtractionJob(upload, {
+        createdBy: String(((_k = req.account) === null || _k === void 0 ? void 0 : _k.id) || ((_l = req.account) === null || _l === void 0 ? void 0 : _l._id) || ''),
         schoolId,
         termId,
         academicSessionId,
@@ -64,6 +67,9 @@ exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
 });
 exports.getExtraction = (0, utils_1.catchAsync)(async (req, res) => {
     const extraction = await attendantExtractionService.getExtractionById(req.params['id']);
+    if (!extraction) {
+        throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Extraction not found');
+    }
     res.send(extraction);
 });
 exports.listExtractions = (0, utils_1.catchAsync)(async (req, res) => {
@@ -71,5 +77,30 @@ exports.listExtractions = (0, utils_1.catchAsync)(async (req, res) => {
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
     const result = await attendant_extraction_model_1.default.paginate(filter, options);
     res.send(result);
+});
+exports.listPendingReviewExtractions = (0, utils_1.catchAsync)(async (req, res) => {
+    const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
+    const result = await attendantExtractionService.listPendingReviewExtractions(options);
+    res.send(result);
+});
+exports.correctExtraction = (0, utils_1.catchAsync)(async (req, res) => {
+    const extraction = await attendanceCorrectionService.correctExtraction(req.params['id'], req.body);
+    res.status(http_status_1.default.OK).send(extraction);
+});
+exports.approveExtraction = (0, utils_1.catchAsync)(async (req, res) => {
+    var _a, _b;
+    const approvedBy = ((_a = req.account) === null || _a === void 0 ? void 0 : _a.id) || ((_b = req.account) === null || _b === void 0 ? void 0 : _b._id);
+    if (!approvedBy) {
+        throw new errors_1.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
+    }
+    const extraction = await attendanceCorrectionService.approveExtraction(req.params['id'], approvedBy);
+    res.status(http_status_1.default.OK).send(extraction);
+});
+exports.exportExtraction = (0, utils_1.catchAsync)(async (req, res) => {
+    const format = req.query['format'] || 'jsonl';
+    const exported = await attendanceExportService.exportExtraction(req.params['id'], format);
+    res.setHeader('Content-Type', exported.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${exported.fileName}"`);
+    res.status(http_status_1.default.OK).send(exported.body);
 });
 //# sourceMappingURL=attendant-extraction.controller.js.map

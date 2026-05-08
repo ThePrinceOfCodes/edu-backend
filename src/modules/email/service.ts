@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'fs';
 
 
 class EmailManagementService {
-    private mailjet: Mailjet;
+    private mailjet: typeof Mailjet;
     constructor() {
         this.mailjet = new Mailjet({
             apiKey: config.email.smtp.auth.user,

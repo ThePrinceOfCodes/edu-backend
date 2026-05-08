@@ -13,6 +13,7 @@ export const getClasses = {
     name: Joi.string(),
     code: Joi.string(),
     schoolTypeId: Joi.string(),
+    schoolId: Joi.string(),
     sortBy: Joi.string(),
     limit: Joi.number().integer(),
     page: Joi.number().integer(),

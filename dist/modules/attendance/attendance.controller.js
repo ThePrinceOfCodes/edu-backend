@@ -31,12 +31,16 @@ exports.getAttendance = (0, utils_1.catchAsync)(async (req, res) => {
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
     const schoolId = req.query['school'];
     const termId = req.query['termId'];
+    const classId = req.query['classId'];
     const context = {};
     if (schoolId) {
         context.schoolId = schoolId;
     }
     if (termId) {
         context.termId = termId;
+    }
+    if (classId) {
+        context.classId = classId;
     }
     const result = await attendanceService.queryAttendance(filter, options, req.account, context);
     res.send(result);
@@ -44,12 +48,16 @@ exports.getAttendance = (0, utils_1.catchAsync)(async (req, res) => {
 exports.getAttendanceSummary = (0, utils_1.catchAsync)(async (req, res) => {
     const schoolId = req.query['school'];
     const termId = req.query['termId'];
+    const classId = req.query['classId'];
     const context = {};
     if (schoolId) {
         context.schoolId = schoolId;
     }
     if (termId) {
         context.termId = termId;
+    }
+    if (classId) {
+        context.classId = classId;
     }
     const summary = await attendanceService.getAttendanceSummary(req.account, context);
     res.send(summary);

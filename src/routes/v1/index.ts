@@ -14,6 +14,7 @@ import attendantExtractionRoute from './attendant-extraction.route';
 import attendantReviewRoute from './attendant-review.route';
 import messagingRoute from './messaging.route';
 import eventsRoute from './events.route';
+import pushNotificationRoute from './push-notification.route';
 
 const router = express.Router();
 
@@ -81,6 +82,10 @@ const generalRoutes: IRoute[] = [
   {
     path: '/events',
     route: eventsRoute,
+  },
+  {
+    path: '/fcm-token',
+    route: pushNotificationRoute,
   },
 ];
 
