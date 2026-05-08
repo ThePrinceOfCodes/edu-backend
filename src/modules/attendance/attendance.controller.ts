@@ -51,13 +51,34 @@ export const getAttendanceCalendarSummary = catchAsync(async (req: Request, res:
   const schoolId = req.query['schoolId'] as string;
   const termId = req.query['termId'] as string;
   const academicSessionId = req.query['academicSessionId'] as string;
+  const month = req.query['month'] ? Number(req.query['month']) : undefined;
+  const year = req.query['year'] ? Number(req.query['year']) : undefined;
 
-  const summary = await attendanceService.getAttendanceCalendarSummary(req.account, {
+  const context: {
+    classId: string;
+    schoolId: string;
+    termId: string;
+    academicSessionId: string;
+    month?: number;
+    year?: number;
+    publicBaseUrl?: string;
+  } = {
     classId,
     schoolId,
     termId,
     academicSessionId,
-  });
+    publicBaseUrl: `${req.protocol}://${req.get('host') || ''}`,
+  };
+
+  if (month !== undefined) {
+    context.month = month;
+  }
+
+  if (year !== undefined) {
+    context.year = year;
+  }
+
+  const summary = await attendanceService.getAttendanceCalendarSummary(req.account, context);
 
   res.send(summary);
 });

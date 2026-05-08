@@ -1,4 +1,5 @@
 import express, { Express } from 'express';
+import path from 'path';
 import helmet from 'helmet';
 import xss from 'xss-clean';
 import compression from 'compression';
@@ -43,6 +44,9 @@ app.use(compression() as any);
 app.get('/', (_req, res) => {
   res.status(200).send('OK');
 });
+
+app.use('/uploads', express.static(path.resolve('uploads')));
+app.use('/uploads/attendant-extractions', express.static(path.resolve(config.attendantUploadsDir)));
 
 // v1 API routes
 app.use('/v1', routes);

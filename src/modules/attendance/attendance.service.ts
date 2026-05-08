@@ -7,6 +7,7 @@ import { ClassModel } from '../class';
 import { Student } from '../student';
 import { termService, Term } from '../term';
 import Attendance from './attendance.model';
+import { buildExtractionImageUrl } from '../attendant-extraction/attendant-extraction.service';
 import AttendantExtraction from '../attendant-extraction/attendant-extraction.model';
 import AttendantReview from '../attendant-review/attendant-review.model';
 import { getWorkingDays } from '../attendant-extraction/attendant-dates.util';
@@ -24,6 +25,9 @@ type CalendarSummaryContext = {
   schoolId: string;
   termId: string;
   academicSessionId: string;
+  month?: number;
+  year?: number;
+  publicBaseUrl?: string;
 };
 
 type CalendarSummaryContext = {
@@ -324,6 +328,36 @@ const buildDayGrid = (startDate: Date, endDate: Date) => {
   }));
 };
 
+const buildMonthWindow = (termStartDate: Date, termEndDate: Date, month?: number, year?: number) => {
+  if (!month || !year) {
+    return {
+      startDate: termStartDate,
+      endDate: termEndDate,
+    };
+  }
+
+  const monthStartDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const monthEndDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+  return {
+    startDate: monthStartDate > termStartDate ? monthStartDate : termStartDate,
+    endDate: monthEndDate < termEndDate ? monthEndDate : termEndDate,
+  };
+};
+
+const buildDateRangeKeys = (startDate: Date, endDate: Date) => {
+  const keys: string[] = [];
+  const current = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+
+  while (current <= end) {
+    keys.push(buildDateKey(current));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  return keys;
+};
+
 export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: CalendarSummaryContext) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
   await resolveClassContext(school.id, context.classId);
@@ -345,11 +379,45 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     throw new ApiError(httpStatus.BAD_REQUEST, 'Selected global term does not match school board');
   }
 
+  const monthWindow = buildMonthWindow(new Date(term.startDate), new Date(term.endDate), context.month, context.year);
+  if (monthWindow.startDate > monthWindow.endDate) {
+    return {
+      school: {
+        id: school.id,
+        name: school.name,
+      },
+      term: {
+        id: term.id,
+        name: term.name,
+        academicSession: term.academicSession,
+        schoolBoard: term.schoolBoard,
+        school: term.school,
+        startDate: term.startDate,
+        endDate: term.endDate,
+        isActive: term.isActive,
+        resolvedScope: term.school ? 'school' : 'school-board',
+      },
+      class: {
+        id: context.classId,
+      },
+      days: [],
+      rows: [],
+      extractions: [],
+      reviewSummary: {
+        pending: 0,
+        resolved: 0,
+        ignored: 0,
+      },
+    };
+  }
+
   const extractions = await AttendantExtraction.find({
     schoolId: school.id,
     termId: term.id,
     academicSessionId: context.academicSessionId,
     status: { $in: ['parsed', 'attendance_created', 'needs_review'] },
+    startDate: { $lte: monthWindow.endDate },
+    endDate: { $gte: monthWindow.startDate },
   }).sort({ createdAt: 1 });
 
   const classStudents = await Student.find({ school: school.id, classId: context.classId }).sort({ lastName: 1, firstName: 1 });
@@ -373,6 +441,10 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     termId: term.id,
     academicSessionId: context.academicSessionId,
     source: 'attendant-extraction',
+    date: {
+      $gte: monthWindow.startDate,
+      $lte: monthWindow.endDate,
+    },
   });
 
   attendanceRecords.forEach((record) => {
@@ -384,9 +456,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     byStudentDate.set(studentKey, statusMap);
   });
 
-  const days = extractions.length
-    ? buildDayGrid(new Date(term.startDate), new Date(term.endDate))
-    : buildDayGrid(new Date(term.startDate), new Date(term.endDate));
+  const days = buildDayGrid(monthWindow.startDate, monthWindow.endDate);
 
   const dayKeys = days.map((item) => item.date);
 
@@ -439,7 +509,9 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
       status: item.status,
       startDate: item.startDate,
       endDate: item.endDate,
+      dateRange: buildDateRangeKeys(new Date(item.startDate), new Date(item.endDate)),
       createdAt: (item as any).createdAt,
+      imageUrl: buildExtractionImageUrl(item.imagePath || item.originalImagePath, context.publicBaseUrl),
       pendingReviewCount: item.pendingReviewIds?.length || 0,
     })),
     reviewSummary: {

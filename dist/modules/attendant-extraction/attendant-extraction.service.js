@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listPendingReviewExtractions = exports.getExtractionById = exports.processExtraction = exports.createExtractionJob = exports.saveUpload = void 0;
+exports.listPendingReviewExtractions = exports.getExtractionById = exports.processExtraction = exports.createExtractionJob = exports.saveUpload = exports.serializeExtraction = exports.buildExtractionImageUrl = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const http_status_1 = __importDefault(require("http-status"));
@@ -31,6 +31,34 @@ const buildStoredFileName = (file) => {
     };
     return `${file.filename}${extensionByMimeType[file.mimetype] || ''}`;
 };
+const normalizePublicFilePath = (filePath) => {
+    if (!filePath) {
+        return null;
+    }
+    const normalized = filePath.replace(/\\/g, '/').trim();
+    const fileName = path_1.default.basename(normalized);
+    if (!fileName) {
+        return null;
+    }
+    return `uploads/attendant-extractions/${fileName}`;
+};
+const buildExtractionImageUrl = (filePath, publicBaseUrl) => {
+    const publicPath = normalizePublicFilePath(filePath);
+    if (!publicPath) {
+        return null;
+    }
+    const baseUrl = String(publicBaseUrl || config_1.default.server || '').replace(/\/$/, '');
+    if (!baseUrl) {
+        return `/${publicPath}`;
+    }
+    return `${baseUrl}/${publicPath}`;
+};
+exports.buildExtractionImageUrl = buildExtractionImageUrl;
+const serializeExtraction = (extraction, publicBaseUrl) => {
+    const json = typeof extraction.toJSON === 'function' ? extraction.toJSON() : extraction;
+    return Object.assign(Object.assign({}, json), { imageUrl: (0, exports.buildExtractionImageUrl)(json.imagePath || json.originalImagePath, publicBaseUrl) });
+};
+exports.serializeExtraction = serializeExtraction;
 const saveUpload = async (file) => {
     if (!file) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Image file is required');
