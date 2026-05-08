@@ -38,7 +38,8 @@ exports.createClass = (0, utils_1.catchAsync)(async (req, res) => {
 exports.getClasses = (0, utils_1.catchAsync)(async (req, res) => {
     const filter = (0, utils_1.pick)(req.query, ['name', 'code', 'schoolTypeId']);
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
-    const result = await classService.queryClasses(filter, options);
+    const requestedSchoolId = req.query['schoolId'];
+    const result = await classService.queryClasses(filter, options, req.account, requestedSchoolId);
     res.send(result);
 });
 exports.getClass = (0, utils_1.catchAsync)(async (req, res) => {

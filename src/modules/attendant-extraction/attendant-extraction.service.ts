@@ -2,15 +2,32 @@ import fs from 'fs/promises';
 import path from 'path';
 import httpStatus from 'http-status';
 import { ApiError } from '../errors';
+import { logger } from '../logger';
 import config from '../../config/config';
 import AttendantExtraction from './attendant-extraction.model';
 import { attendantExtractionJobName, attendantExtractionQueue } from './attendant-extraction.queue';
 import { preprocessAttendantImage } from './attendant-preprocess.service';
-import { processDocument } from './document-ai.service';
-import { mergeParsedDocuments, parseAttendantDocument, shouldRunFallbackOcr } from './attendant-parser.service';
-import { createAttendanceFromParsedRows } from './attendant-attendance.service';
-import { createReview } from '../attendant-review/attendant-review.service';
-import { getWorkingDays } from './attendant-dates.util';
+import { buildDocumentAiLayoutSummary, processDocument } from './document-ai.service';
+import { extractAttendanceWithPi, repairAttendanceJsonWithPi } from './pi-agent-extraction.service';
+import { validateRawAttendanceExtraction } from './attendance-validation.service';
+import { pushNotificationService } from '../push-notification';
+
+const buildStoredFileName = (file: any) => {
+  const originalExtension = path.extname(file.originalname || '').toLowerCase();
+  if (originalExtension) {
+    return `${file.filename}${originalExtension}`;
+  }
+
+  const extensionByMimeType: Record<string, string> = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'image/tiff': '.tiff',
+    'application/pdf': '.pdf',
+  };
+
+  return `${file.filename}${extensionByMimeType[file.mimetype] || ''}`;
+};
 
 export const saveUpload = async (file: any) => {
   if (!file) {
@@ -18,20 +35,26 @@ export const saveUpload = async (file: any) => {
   }
 
   await fs.mkdir(config.attendantUploadsDir, { recursive: true });
-  const targetPath = path.join(config.attendantUploadsDir, file.filename || `${Date.now()}-${file.originalname}`);
+  const targetPath = path.join(config.attendantUploadsDir, buildStoredFileName(file));
   if (file.path !== targetPath) {
     await fs.rename(file.path, targetPath);
   }
 
-  return targetPath;
+  return {
+    originalImagePath: targetPath,
+    mimeType: file.mimetype || 'application/octet-stream',
+  };
 };
 
 export const createExtractionJob = async (
-  imagePath: string,
-  context: { schoolId: string; termId: string; academicSessionId: string; startDate: Date; endDate: Date },
+  upload: { originalImagePath: string; mimeType: string },
+  context: { createdBy?: string; schoolId: string; termId: string; academicSessionId: string; startDate: Date; endDate: Date },
 ) => {
   const extraction = await AttendantExtraction.create({
-    imagePath,
+    createdBy: context.createdBy || null,
+    imagePath: upload.originalImagePath,
+    originalImagePath: upload.originalImagePath,
+    mimeType: upload.mimeType,
     schoolId: context.schoolId,
     termId: context.termId,
     academicSessionId: context.academicSessionId,
@@ -39,7 +62,7 @@ export const createExtractionJob = async (
     endDate: context.endDate,
     status: 'queued',
   });
-  await attendantExtractionQueue.add(attendantExtractionJobName, { extractionId: extraction['_id'] as string });
+  await attendantExtractionQueue.add(attendantExtractionJobName, { extractionId: extraction['_id'] as unknown as string });
   return extraction;
 };
 
@@ -47,63 +70,83 @@ export const processExtraction = async (extractionId: string) => {
   const extraction = await AttendantExtraction.findById(extractionId);
   if (!extraction) throw new ApiError(httpStatus.NOT_FOUND, 'Extraction not found');
 
-  extraction.status = 'processing';
-  await extraction.save();
+  try {
+    extraction.status = 'processing';
+    extraction.error = undefined as unknown as string;
+    await extraction.save();
 
-  const preprocessedImagePath = await preprocessAttendantImage(extraction.imagePath);
-  extraction.preprocessedImagePath = preprocessedImagePath;
+    const preprocessedImagePath = await preprocessAttendantImage(extraction.originalImagePath);
+    extraction.preprocessedImagePath = preprocessedImagePath;
 
-  const preprocessedDocument = await processDocument(preprocessedImagePath);
-  let parsed = parseAttendantDocument(preprocessedDocument);
+    const documentAiOutput = await processDocument(preprocessedImagePath, extraction.mimeType);
+    const layoutSummary = buildDocumentAiLayoutSummary(documentAiOutput);
 
-  let originalDocument: any = null;
-  if (shouldRunFallbackOcr(parsed)) {
-    originalDocument = await processDocument(extraction.imagePath);
-    parsed = mergeParsedDocuments(preprocessedDocument, originalDocument);
-  }
+    extraction.rawOcrJson = documentAiOutput as any;
+    extraction.rawText = documentAiOutput?.text || '';
+    extraction.documentAiRawOutput = documentAiOutput as any;
+    extraction.documentAiText = documentAiOutput?.text || '';
+    extraction.documentAiLayoutSummary = layoutSummary as any;
+    extraction.status = 'ocr_completed';
+    extraction.validationErrors = [];
+    await extraction.save();
 
-  extraction.rawOcrJson = {
-    preprocessed: preprocessedDocument,
-    original: originalDocument,
-  } as any;
-  extraction.rawText = preprocessedDocument?.text || originalDocument?.text || '';
+    if (!config.attendanceExtraction.usePi) {
+      return extraction;
+    }
 
-  extraction.parsedJson = parsed as any;
-  extraction.status = 'parsed';
-  await extraction.save();
-
-  const workingDays = getWorkingDays(extraction.startDate, extraction.endDate);
-
-  const createdAttendance = await createAttendanceFromParsedRows({
-    schoolId: extraction.schoolId,
-    termId: extraction.termId,
-    academicSessionId: extraction.academicSessionId,
-    workingDays,
-    rows: (parsed.rows || []) as any,
-  }).catch(() => []);
-
-  extraction.createdAttendanceIds = createdAttendance.map((item) => item['_id'] as string);
-
-  const pendingReviews = [] as any[];
-  for (const row of parsed.unmatchedRows || []) {
-    const review = await createReview({
-      schoolId: extraction.schoolId,
-      extractionId: extraction['_id'] as string,
-      sourceImagePath: extraction.imagePath,
-      rawRow: row,
-      parsedAttempt: row,
-      reason: 'Could not confidently match student',
-      confidence: (row as any).confidence ?? 0,
-      resolvedStatus: 'pending',
+    const piResult = await extractAttendanceWithPi({
+      imagePath: extraction.originalImagePath,
+      mimeType: extraction.mimeType,
+      documentAiText: extraction.documentAiText || '',
+      documentAiLayoutSummary: layoutSummary,
     });
-    pendingReviews.push(review);
+
+    extraction.llmRawResponse = piResult.rawResponse;
+    extraction.provider = piResult.provider;
+    extraction.set('model', piResult.model);
+    extraction.processingMeta = {
+      ...(extraction.processingMeta || {}),
+      promptVersion: piResult.promptVersion,
+    } as any;
+
+    let validation = validateRawAttendanceExtraction(piResult.rawResponse);
+
+    if (!validation.isValid) {
+      const repairedResponse = await repairAttendanceJsonWithPi(piResult.rawResponse, {
+        imagePath: extraction.originalImagePath,
+        mimeType: extraction.mimeType,
+        documentAiText: extraction.documentAiText || '',
+        documentAiLayoutSummary: layoutSummary,
+      });
+
+      extraction.llmRawResponse = repairedResponse;
+      validation = validateRawAttendanceExtraction(repairedResponse);
+    }
+
+    if (!validation.isValid) {
+      extraction.validationErrors = validation.errors;
+      extraction.status = 'validation_failed';
+      await extraction.save();
+      return extraction;
+    }
+
+    extraction.llmExtractedOutput = validation.data as any;
+    extraction.validationErrors = [];
+    extraction.status = 'pending_review';
+    await extraction.save();
+    await pushNotificationService.sendAttendanceReviewAlert(extraction);
+
+    return extraction;
+  } catch (error) {
+    extraction.status = 'failed';
+    extraction.error = error instanceof Error ? error.message : 'Extraction failed';
+    await extraction.save();
+    logger.error(error);
+    throw error;
   }
-
-  extraction.pendingReviewIds = pendingReviews.map((item) => item['_id'] as string);
-  extraction.status = pendingReviews.length ? 'needs_review' : 'attendance_created';
-  await extraction.save();
-
-  return extraction;
 };
 
 export const getExtractionById = (id: string) => AttendantExtraction.findById(id);
+
+export const listPendingReviewExtractions = (options: any) =>
+  AttendantExtraction.paginate({ status: { $in: ['ocr_completed', 'pending_review', 'corrected'] } }, options);

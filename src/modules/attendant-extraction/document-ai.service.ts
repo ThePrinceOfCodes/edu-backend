@@ -43,3 +43,22 @@ export const processDocument = async (filePath: string, mimeType?: string) => {
   } as any);
   return result.document;
 };
+
+export const buildDocumentAiLayoutSummary = (document: any) => {
+  const pages = Array.isArray(document?.pages) ? document.pages : [];
+  const entities = Array.isArray(document?.entities) ? document.entities : [];
+  const formFields = pages.reduce((count: number, page: any) => count + (page?.formFields?.length || 0), 0);
+  const tables = pages.reduce((count: number, page: any) => count + (page?.tables?.length || 0), 0);
+
+  return {
+    pageCount: pages.length,
+    textLength: typeof document?.text === 'string' ? document.text.length : 0,
+    formFieldCount: formFields,
+    tableCount: tables,
+    entityMentions: entities.slice(0, 25).map((entity: any) => ({
+      type: entity?.type || '',
+      mentionText: entity?.mentionText || '',
+      confidence: typeof entity?.confidence === 'number' ? entity.confidence : null,
+    })),
+  };
+};

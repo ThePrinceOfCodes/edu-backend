@@ -17,6 +17,7 @@ exports.getClasses = {
         name: joi_1.default.string(),
         code: joi_1.default.string(),
         schoolTypeId: joi_1.default.string(),
+        schoolId: joi_1.default.string(),
         sortBy: joi_1.default.string(),
         limit: joi_1.default.number().integer(),
         page: joi_1.default.number().integer(),

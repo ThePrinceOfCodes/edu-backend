@@ -22,10 +22,6 @@
         "types/teamwork__websocket-json-stream"
       ]
     },
-    "typeRoots": [
-      "./node_modules/@types",
-      "./src/declarations"
-    ],
     "resolveJsonModule": true,
     "sourceMap": true,
     "outDir": "./dist",

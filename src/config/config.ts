@@ -38,7 +38,16 @@ const envVarsSchema = Joi.object()
     GOOGLE_CLOUD_PROJECT_ID: Joi.string().optional(),
     GOOGLE_CLOUD_LOCATION: Joi.string().valid('us', 'eu').optional(),
     GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID: Joi.string().optional(),
+    DOCUMENT_AI_PROCESSOR_ID: Joi.string().optional(),
+    OPENAI_API_KEY: Joi.string().allow('').optional(),
+    GEMINI_API_KEY: Joi.string().allow('').optional(),
+    ANTHROPIC_API_KEY: Joi.string().allow('').optional(),
+    PUSH_NOTIFICATIONS_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
     ATTENDANT_UPLOAD_DIR: Joi.string().optional(),
+    ATTENDANT_EXTRACTION_USE_PI: Joi.boolean().truthy('true').falsy('false').default(true),
+    ATTENDANT_EXTRACTION_PROVIDER: Joi.string().valid('google', 'openai', 'anthropic').optional(),
+    ATTENDANT_EXTRACTION_MODEL: Joi.string().trim().optional(),
+    ATTENDANT_EXTRACTION_MAX_UPLOAD_MB: Joi.number().integer().min(1).default(10),
   })
   .unknown()
 
@@ -104,9 +113,24 @@ const config = {
   googleDocumentAi: {
     projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
     location: envVars.GOOGLE_CLOUD_LOCATION,
-    processorId: envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
+    processorId: envVars.DOCUMENT_AI_PROCESSOR_ID || envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
+  },
+  pushNotifications: {
+    enabled: envVars.PUSH_NOTIFICATIONS_ENABLED,
+    projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
   },
   attendantUploadsDir: envVars.ATTENDANT_UPLOAD_DIR || 'uploads/attendant-extractions',
+  attendanceExtraction: {
+    usePi: envVars.ATTENDANT_EXTRACTION_USE_PI,
+    provider: envVars.ATTENDANT_EXTRACTION_PROVIDER,
+    model: envVars.ATTENDANT_EXTRACTION_MODEL,
+    maxUploadMb: envVars.ATTENDANT_EXTRACTION_MAX_UPLOAD_MB,
+    apiKeys: {
+      openai: envVars.OPENAI_API_KEY,
+      google: envVars.GEMINI_API_KEY,
+      anthropic: envVars.ANTHROPIC_API_KEY,
+    },
+  },
 }
 
 export default config

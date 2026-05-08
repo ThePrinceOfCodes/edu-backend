@@ -4,6 +4,7 @@ import app from './app';
 import config from './config/config';
 import logger from './modules/logger/logger';
 import { seedInternalAdminUser } from './modules/users/user.seed';
+import './modules/attendant-extraction/attendant-extraction.worker';
 let server: http.Server;
 
 // Create HTTP server using Express app
