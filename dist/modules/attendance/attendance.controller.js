@@ -67,12 +67,22 @@ exports.getAttendanceCalendarSummary = (0, utils_1.catchAsync)(async (req, res) 
     const schoolId = req.query['schoolId'];
     const termId = req.query['termId'];
     const academicSessionId = req.query['academicSessionId'];
-    const summary = await attendanceService.getAttendanceCalendarSummary(req.account, {
+    const month = req.query['month'] ? Number(req.query['month']) : undefined;
+    const year = req.query['year'] ? Number(req.query['year']) : undefined;
+    const context = {
         classId,
         schoolId,
         termId,
         academicSessionId,
-    });
+        publicBaseUrl: `${req.protocol}://${req.get('host') || ''}`,
+    };
+    if (month !== undefined) {
+        context.month = month;
+    }
+    if (year !== undefined) {
+        context.year = year;
+    }
+    const summary = await attendanceService.getAttendanceCalendarSummary(req.account, context);
     res.send(summary);
 });
 //# sourceMappingURL=attendance.controller.js.map

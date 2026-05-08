@@ -34,6 +34,7 @@ const attendanceCorrectionService = __importStar(require("./attendance-correctio
 const attendanceExportService = __importStar(require("./attendance-export.service"));
 const attendant_extraction_model_1 = __importDefault(require("./attendant-extraction.model"));
 const errors_1 = require("../errors");
+const getPublicBaseUrl = (req) => `${req.protocol}://${req.get('host') || ''}`;
 exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     const file = req.file;
@@ -63,29 +64,29 @@ exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
         startDate,
         endDate,
     });
-    res.status(http_status_1.default.CREATED).send(extraction);
+    res.status(http_status_1.default.CREATED).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 exports.getExtraction = (0, utils_1.catchAsync)(async (req, res) => {
     const extraction = await attendantExtractionService.getExtractionById(req.params['id']);
     if (!extraction) {
         throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Extraction not found');
     }
-    res.send(extraction);
+    res.send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 exports.listExtractions = (0, utils_1.catchAsync)(async (req, res) => {
     const filter = (0, utils_1.pick)(req.query, ['status']);
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
     const result = await attendant_extraction_model_1.default.paginate(filter, options);
-    res.send(result);
+    res.send(Object.assign(Object.assign({}, result), { results: (result.results || []).map((item) => attendantExtractionService.serializeExtraction(item, getPublicBaseUrl(req))) }));
 });
 exports.listPendingReviewExtractions = (0, utils_1.catchAsync)(async (req, res) => {
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);
     const result = await attendantExtractionService.listPendingReviewExtractions(options);
-    res.send(result);
+    res.send(Object.assign(Object.assign({}, result), { results: (result.results || []).map((item) => attendantExtractionService.serializeExtraction(item, getPublicBaseUrl(req))) }));
 });
 exports.correctExtraction = (0, utils_1.catchAsync)(async (req, res) => {
     const extraction = await attendanceCorrectionService.correctExtraction(req.params['id'], req.body);
-    res.status(http_status_1.default.OK).send(extraction);
+    res.status(http_status_1.default.OK).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 exports.approveExtraction = (0, utils_1.catchAsync)(async (req, res) => {
     var _a, _b;
@@ -94,7 +95,7 @@ exports.approveExtraction = (0, utils_1.catchAsync)(async (req, res) => {
         throw new errors_1.ApiError(http_status_1.default.UNAUTHORIZED, 'Please authenticate');
     }
     const extraction = await attendanceCorrectionService.approveExtraction(req.params['id'], approvedBy);
-    res.status(http_status_1.default.OK).send(extraction);
+    res.status(http_status_1.default.OK).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 exports.exportExtraction = (0, utils_1.catchAsync)(async (req, res) => {
     const format = req.query['format'] || 'jsonl';

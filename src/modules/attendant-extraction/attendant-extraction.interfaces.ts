@@ -52,6 +52,13 @@ export interface IAttendantExtraction {
   pendingReviewIds?: string[];
 }
 
+export type IAttendantExtractionApiResponse = IAttendantExtraction & {
+  id: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  imageUrl?: string | null;
+};
+
 export type IAttendantExtractionDoc = HydratedDocument<IAttendantExtraction>;
 
 export interface IAttendantExtractionModel extends Model<IAttendantExtractionDoc> {

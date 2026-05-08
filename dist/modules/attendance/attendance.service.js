@@ -11,6 +11,7 @@ const school_1 = require("../school");
 const student_1 = require("../student");
 const term_1 = require("../term");
 const attendance_model_1 = __importDefault(require("./attendance.model"));
+const attendant_extraction_service_1 = require("../attendant-extraction/attendant-extraction.service");
 const attendant_extraction_model_1 = __importDefault(require("../attendant-extraction/attendant-extraction.model"));
 const attendant_review_model_1 = __importDefault(require("../attendant-review/attendant-review.model"));
 const attendant_dates_util_1 = require("../attendant-extraction/attendant-dates.util");
@@ -235,6 +236,30 @@ const buildDayGrid = (startDate, endDate) => {
         label: String(new Date(date).getUTCDate()),
     }));
 };
+const buildMonthWindow = (termStartDate, termEndDate, month, year) => {
+    if (!month || !year) {
+        return {
+            startDate: termStartDate,
+            endDate: termEndDate,
+        };
+    }
+    const monthStartDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const monthEndDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    return {
+        startDate: monthStartDate > termStartDate ? monthStartDate : termStartDate,
+        endDate: monthEndDate < termEndDate ? monthEndDate : termEndDate,
+    };
+};
+const buildDateRangeKeys = (startDate, endDate) => {
+    const keys = [];
+    const current = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+    const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+    while (current <= end) {
+        keys.push(buildDateKey(current));
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+    return keys;
+};
 const getAttendanceCalendarSummary = async (actor, context) => {
     const school = await resolveSchoolContext(actor, context.schoolId);
     await resolveClassContext(school.id, context.classId);
@@ -251,11 +276,44 @@ const getAttendanceCalendarSummary = async (actor, context) => {
     if (!term.school && school.schoolBoard !== term.schoolBoard) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Selected global term does not match school board');
     }
+    const monthWindow = buildMonthWindow(new Date(term.startDate), new Date(term.endDate), context.month, context.year);
+    if (monthWindow.startDate > monthWindow.endDate) {
+        return {
+            school: {
+                id: school.id,
+                name: school.name,
+            },
+            term: {
+                id: term.id,
+                name: term.name,
+                academicSession: term.academicSession,
+                schoolBoard: term.schoolBoard,
+                school: term.school,
+                startDate: term.startDate,
+                endDate: term.endDate,
+                isActive: term.isActive,
+                resolvedScope: term.school ? 'school' : 'school-board',
+            },
+            class: {
+                id: context.classId,
+            },
+            days: [],
+            rows: [],
+            extractions: [],
+            reviewSummary: {
+                pending: 0,
+                resolved: 0,
+                ignored: 0,
+            },
+        };
+    }
     const extractions = await attendant_extraction_model_1.default.find({
         schoolId: school.id,
         termId: term.id,
         academicSessionId: context.academicSessionId,
         status: { $in: ['parsed', 'attendance_created', 'needs_review'] },
+        startDate: { $lte: monthWindow.endDate },
+        endDate: { $gte: monthWindow.startDate },
     }).sort({ createdAt: 1 });
     const classStudents = await student_1.Student.find({ school: school.id, classId: context.classId }).sort({ lastName: 1, firstName: 1 });
     const reviewMap = new Map();
@@ -272,6 +330,10 @@ const getAttendanceCalendarSummary = async (actor, context) => {
         termId: term.id,
         academicSessionId: context.academicSessionId,
         source: 'attendant-extraction',
+        date: {
+            $gte: monthWindow.startDate,
+            $lte: monthWindow.endDate,
+        },
     });
     attendanceRecords.forEach((record) => {
         const studentKey = record.student;
@@ -280,9 +342,7 @@ const getAttendanceCalendarSummary = async (actor, context) => {
         statusMap.set(dateKey, record.status);
         byStudentDate.set(studentKey, statusMap);
     });
-    const days = extractions.length
-        ? buildDayGrid(new Date(term.startDate), new Date(term.endDate))
-        : buildDayGrid(new Date(term.startDate), new Date(term.endDate));
+    const days = buildDayGrid(monthWindow.startDate, monthWindow.endDate);
     const dayKeys = days.map((item) => item.date);
     const rows = classStudents.map((student) => {
         const statusMap = byStudentDate.get(student.id) || new Map();
@@ -331,7 +391,9 @@ const getAttendanceCalendarSummary = async (actor, context) => {
                 status: item.status,
                 startDate: item.startDate,
                 endDate: item.endDate,
+                dateRange: buildDateRangeKeys(new Date(item.startDate), new Date(item.endDate)),
                 createdAt: item.createdAt,
+                imageUrl: (0, attendant_extraction_service_1.buildExtractionImageUrl)(item.imagePath || item.originalImagePath, context.publicBaseUrl),
                 pendingReviewCount: ((_a = item.pendingReviewIds) === null || _a === void 0 ? void 0 : _a.length) || 0,
             });
         }),

@@ -8,6 +8,8 @@ import AttendantExtraction from './attendant-extraction.model';
 import { ApiError } from '../errors';
 import { AttendanceExtractionExportFormat } from './attendant-extraction.interfaces';
 
+const getPublicBaseUrl = (req: Request) => `${req.protocol}://${req.get('host') || ''}`;
+
 export const createExtraction = catchAsync(async (req: Request, res: Response) => {
   const file = (req as Request & { file?: any }).file;
   const schoolId = (req.body?.['schoolId'] || req.query?.['schoolId'] || req.account?.['schoolId']) as string | undefined;
@@ -33,7 +35,7 @@ export const createExtraction = catchAsync(async (req: Request, res: Response) =
     endDate,
   });
 
-  res.status(httpStatus.CREATED).send(extraction);
+  res.status(httpStatus.CREATED).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 
 export const getExtraction = catchAsync(async (req: Request, res: Response) => {
@@ -41,25 +43,31 @@ export const getExtraction = catchAsync(async (req: Request, res: Response) => {
   if (!extraction) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Extraction not found');
   }
-  res.send(extraction);
+  res.send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 
 export const listExtractions = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, ['status']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await AttendantExtraction.paginate(filter, options);
-  res.send(result);
+  res.send({
+    ...result,
+    results: (result.results || []).map((item: any) => attendantExtractionService.serializeExtraction(item, getPublicBaseUrl(req))),
+  });
 });
 
 export const listPendingReviewExtractions = catchAsync(async (req: Request, res: Response) => {
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await attendantExtractionService.listPendingReviewExtractions(options);
-  res.send(result);
+  res.send({
+    ...result,
+    results: (result.results || []).map((item: any) => attendantExtractionService.serializeExtraction(item, getPublicBaseUrl(req))),
+  });
 });
 
 export const correctExtraction = catchAsync(async (req: Request, res: Response) => {
   const extraction = await attendanceCorrectionService.correctExtraction(req.params['id'] as string, req.body);
-  res.status(httpStatus.OK).send(extraction);
+  res.status(httpStatus.OK).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 
 export const approveExtraction = catchAsync(async (req: Request, res: Response) => {
@@ -69,7 +77,7 @@ export const approveExtraction = catchAsync(async (req: Request, res: Response) 
   }
 
   const extraction = await attendanceCorrectionService.approveExtraction(req.params['id'] as string, approvedBy);
-  res.status(httpStatus.OK).send(extraction);
+  res.status(httpStatus.OK).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 
 export const exportExtraction = catchAsync(async (req: Request, res: Response) => {

@@ -5,6 +5,7 @@ import { ApiError } from '../errors';
 import { logger } from '../logger';
 import config from '../../config/config';
 import AttendantExtraction from './attendant-extraction.model';
+import { IAttendantExtractionApiResponse, IAttendantExtractionDoc } from './attendant-extraction.interfaces';
 import { attendantExtractionJobName, attendantExtractionQueue } from './attendant-extraction.queue';
 import { preprocessAttendantImage } from './attendant-preprocess.service';
 import { buildDocumentAiLayoutSummary, processDocument } from './document-ai.service';
@@ -27,6 +28,43 @@ const buildStoredFileName = (file: any) => {
   };
 
   return `${file.filename}${extensionByMimeType[file.mimetype] || ''}`;
+};
+
+const normalizePublicFilePath = (filePath?: string | null) => {
+  if (!filePath) {
+    return null;
+  }
+
+  const normalized = filePath.replace(/\\/g, '/').trim();
+  const fileName = path.basename(normalized);
+  if (!fileName) {
+    return null;
+  }
+
+  return `uploads/attendant-extractions/${fileName}`;
+};
+
+export const buildExtractionImageUrl = (filePath?: string | null, publicBaseUrl?: string | null) => {
+  const publicPath = normalizePublicFilePath(filePath);
+  if (!publicPath) {
+    return null;
+  }
+
+  const baseUrl = String(publicBaseUrl || config.server || '').replace(/\/$/, '');
+  if (!baseUrl) {
+    return `/${publicPath}`;
+  }
+
+  return `${baseUrl}/${publicPath}`;
+};
+
+export const serializeExtraction = (extraction: IAttendantExtractionDoc | any, publicBaseUrl?: string | null): IAttendantExtractionApiResponse => {
+  const json = typeof extraction.toJSON === 'function' ? extraction.toJSON() : extraction;
+
+  return {
+    ...json,
+    imageUrl: buildExtractionImageUrl(json.imagePath || json.originalImagePath, publicBaseUrl),
+  };
 };
 
 export const saveUpload = async (file: any) => {

@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const path_1 = __importDefault(require("path"));
 const helmet_1 = __importDefault(require("helmet"));
 const xss_clean_1 = __importDefault(require("xss-clean"));
 const compression_1 = __importDefault(require("compression"));
@@ -37,6 +38,8 @@ app.use((0, compression_1.default)());
 app.get('/', (_req, res) => {
     res.status(200).send('OK');
 });
+app.use('/uploads', express_1.default.static(path_1.default.resolve('uploads')));
+app.use('/uploads/attendant-extractions', express_1.default.static(path_1.default.resolve(config_1.default.attendantUploadsDir)));
 // v1 API routes
 app.use('/v1', index_3.default);
 // Send back a 404 error for any unknown API request
