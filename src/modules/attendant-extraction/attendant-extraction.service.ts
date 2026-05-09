@@ -8,7 +8,7 @@ import AttendantExtraction from './attendant-extraction.model';
 import { IAttendantExtractionApiResponse, IAttendantExtractionDoc } from './attendant-extraction.interfaces';
 import { attendantExtractionJobName, attendantExtractionQueue } from './attendant-extraction.queue';
 import { preprocessAttendantImage } from './attendant-preprocess.service';
-import { buildDocumentAiLayoutSummary, processDocument } from './document-ai.service';
+import { buildDocumentAiLayoutSummary, isDocumentAiInvalidArgumentError, processDocument } from './document-ai.service';
 import { extractAttendanceWithPi, repairAttendanceJsonWithPi } from './pi-agent-extraction.service';
 import { validateRawAttendanceExtraction } from './attendance-validation.service';
 import { pushNotificationService } from '../push-notification';
@@ -117,7 +117,17 @@ export const processExtraction = async (extractionId: string) => {
     const preprocessedImagePath = await preprocessAttendantImage(extraction.originalImagePath);
     extraction.preprocessedImagePath = preprocessedImagePath;
 
-    const documentAiOutput = await processDocument(preprocessedImagePath, extraction.mimeType);
+    let documentAiOutput;
+    try {
+      documentAiOutput = await processDocument(preprocessedImagePath, extraction.mimeType);
+    } catch (error) {
+      if (!isDocumentAiInvalidArgumentError(error)) {
+        throw error;
+      }
+
+      logger.warn('[DocumentAI] Preprocessed file rejected, retrying with original upload');
+      documentAiOutput = await processDocument(extraction.originalImagePath, extraction.mimeType);
+    }
     const layoutSummary = buildDocumentAiLayoutSummary(documentAiOutput);
 
     extraction.rawOcrJson = documentAiOutput as any;
@@ -211,7 +221,17 @@ export const runDocumentAiTest = async (file: any, options?: { includeRaw?: bool
   const preprocessedImagePath = await preprocessAttendantImage(upload.originalImagePath);
 
   try {
-    const documentAiOutput = await processDocument(preprocessedImagePath, upload.mimeType);
+    let documentAiOutput;
+    try {
+      documentAiOutput = await processDocument(preprocessedImagePath, upload.mimeType);
+    } catch (error) {
+      if (!isDocumentAiInvalidArgumentError(error)) {
+        throw error;
+      }
+
+      logger.warn('[DocumentAI] Test preprocessed file rejected, retrying with original upload');
+      documentAiOutput = await processDocument(upload.originalImagePath, upload.mimeType);
+    }
     const layoutSummary = buildDocumentAiLayoutSummary(documentAiOutput);
 
     return {

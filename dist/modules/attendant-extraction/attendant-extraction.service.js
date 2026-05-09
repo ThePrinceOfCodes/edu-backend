@@ -102,7 +102,17 @@ const processExtraction = async (extractionId) => {
         await extraction.save();
         const preprocessedImagePath = await (0, attendant_preprocess_service_1.preprocessAttendantImage)(extraction.originalImagePath);
         extraction.preprocessedImagePath = preprocessedImagePath;
-        const documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, extraction.mimeType);
+        let documentAiOutput;
+        try {
+            documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, extraction.mimeType);
+        }
+        catch (error) {
+            if (!(0, document_ai_service_1.isDocumentAiInvalidArgumentError)(error)) {
+                throw error;
+            }
+            logger_1.logger.warn('[DocumentAI] Preprocessed file rejected, retrying with original upload');
+            documentAiOutput = await (0, document_ai_service_1.processDocument)(extraction.originalImagePath, extraction.mimeType);
+        }
         const layoutSummary = (0, document_ai_service_1.buildDocumentAiLayoutSummary)(documentAiOutput);
         extraction.rawOcrJson = documentAiOutput;
         extraction.rawText = (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.text) || '';
@@ -179,7 +189,17 @@ const runDocumentAiTest = async (file, options) => {
     const upload = await (0, exports.saveUpload)(file);
     const preprocessedImagePath = await (0, attendant_preprocess_service_1.preprocessAttendantImage)(upload.originalImagePath);
     try {
-        const documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, upload.mimeType);
+        let documentAiOutput;
+        try {
+            documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, upload.mimeType);
+        }
+        catch (error) {
+            if (!(0, document_ai_service_1.isDocumentAiInvalidArgumentError)(error)) {
+                throw error;
+            }
+            logger_1.logger.warn('[DocumentAI] Test preprocessed file rejected, retrying with original upload');
+            documentAiOutput = await (0, document_ai_service_1.processDocument)(upload.originalImagePath, upload.mimeType);
+        }
         const layoutSummary = (0, document_ai_service_1.buildDocumentAiLayoutSummary)(documentAiOutput);
         return {
             documentAi: {

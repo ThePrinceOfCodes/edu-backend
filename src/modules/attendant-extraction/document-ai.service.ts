@@ -47,7 +47,8 @@ const mimeTypeFromPath = (filePath: string): string => {
 };
 
 export const processDocument = async (filePath: string, mimeType?: string) => {
-  const resolvedMimeType = mimeType ?? mimeTypeFromPath(filePath);
+  const fileMimeType = mimeTypeFromPath(filePath);
+  const resolvedMimeType = fileMimeType || mimeType || 'image/jpeg';
   if (!config.googleDocumentAi.projectId || !config.googleDocumentAi.location || !config.googleDocumentAi.processorId) {
     throw new Error('Google Document AI config is missing');
   }
@@ -68,6 +69,11 @@ export const processDocument = async (filePath: string, mimeType?: string) => {
     timeout: 600000,
   } as any);
   return result.document;
+};
+
+export const isDocumentAiInvalidArgumentError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('INVALID_ARGUMENT') || message.includes('Request contains an invalid argument');
 };
 
 export const buildDocumentAiLayoutSummary = (document: any) => {

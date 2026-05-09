@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildDocumentAiLayoutSummary = exports.processDocument = void 0;
+exports.buildDocumentAiLayoutSummary = exports.isDocumentAiInvalidArgumentError = exports.processDocument = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const documentai_1 = require("@google-cloud/documentai");
@@ -47,7 +47,8 @@ const mimeTypeFromPath = (filePath) => {
     return (_a = map[ext]) !== null && _a !== void 0 ? _a : 'image/jpeg';
 };
 const processDocument = async (filePath, mimeType) => {
-    const resolvedMimeType = mimeType !== null && mimeType !== void 0 ? mimeType : mimeTypeFromPath(filePath);
+    const fileMimeType = mimeTypeFromPath(filePath);
+    const resolvedMimeType = fileMimeType || mimeType || 'image/jpeg';
     if (!config_1.default.googleDocumentAi.projectId || !config_1.default.googleDocumentAi.location || !config_1.default.googleDocumentAi.processorId) {
         throw new Error('Google Document AI config is missing');
     }
@@ -67,6 +68,11 @@ const processDocument = async (filePath, mimeType) => {
     return result.document;
 };
 exports.processDocument = processDocument;
+const isDocumentAiInvalidArgumentError = (error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('INVALID_ARGUMENT') || message.includes('Request contains an invalid argument');
+};
+exports.isDocumentAiInvalidArgumentError = isDocumentAiInvalidArgumentError;
 const buildDocumentAiLayoutSummary = (document) => {
     const pages = Array.isArray(document === null || document === void 0 ? void 0 : document.pages) ? document.pages : [];
     const entities = Array.isArray(document === null || document === void 0 ? void 0 : document.entities) ? document.entities : [];
