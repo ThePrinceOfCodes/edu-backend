@@ -38,6 +38,18 @@ router.post(
   validate(attendantExtractionValidation.createExtraction),
   attendantExtractionController.createExtraction
 );
+router.post(
+  '/test/document-ai',
+  upload.single('image'),
+  validate(attendantExtractionValidation.testDocumentAi),
+  attendantExtractionController.testDocumentAi
+);
+router.post(
+  '/test/pi',
+  upload.single('image'),
+  validate(attendantExtractionValidation.testPi),
+  attendantExtractionController.testPi
+);
 router.get(
   '/pending-review',
   authenticate,

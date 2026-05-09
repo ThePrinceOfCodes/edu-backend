@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import config from '../../config/config';
 import { ApiError } from '../errors';
 import { logger } from '../logger';
+import { getPiOAuthApiKey, getRuntimePiOAuthProviderId } from './pi-oauth.service';
 import {
   ATTENDANCE_EXTRACTION_PROMPT,
   ATTENDANCE_EXTRACTION_PROMPT_VERSION,
@@ -23,6 +24,16 @@ type PiExtractionResult = {
 };
 
 const resolveModel = async (modelRegistry: any) => {
+  const oauthProvider = getRuntimePiOAuthProviderId();
+  if (oauthProvider === 'openai-codex') {
+    const codexModel = modelRegistry.find('openai-codex', 'gpt-5.3-codex');
+    if (!codexModel) {
+      throw new ApiError(500, "Configured Pi model 'openai-codex/gpt-5.3-codex' was not found");
+    }
+
+    return codexModel;
+  }
+
   const configuredProvider = config.attendanceExtraction.provider;
   const configuredModel = config.attendanceExtraction.model;
 
@@ -71,15 +82,16 @@ const createPiSession = async () => {
   const sdk = await loadPiSdk();
   const authStorage = sdk.AuthStorage.create();
 
-  if (config.attendanceExtraction.apiKeys.google) {
-    authStorage.setRuntimeApiKey('google', config.attendanceExtraction.apiKeys.google);
+  const oauthKey = await getPiOAuthApiKey();
+  const oauthProvider = getRuntimePiOAuthProviderId();
+
+  if (oauthKey && oauthProvider) {
+    authStorage.setRuntimeApiKey(oauthProvider, oauthKey);
+    logger.debug(`[pi-agent] Using Pi OAuth key for provider '${oauthProvider}'`);
   }
-  if (config.attendanceExtraction.apiKeys.openai) {
-    authStorage.setRuntimeApiKey('openai', config.attendanceExtraction.apiKeys.openai);
-  }
-  if (config.attendanceExtraction.apiKeys.anthropic) {
-    authStorage.setRuntimeApiKey('anthropic', config.attendanceExtraction.apiKeys.anthropic);
-  }
+
+  const { openai } = config.attendanceExtraction.apiKeys;
+  if (openai) authStorage.setRuntimeApiKey('openai', openai);
 
   const modelRegistry = sdk.ModelRegistry.create(authStorage);
   const model = await resolveModel(modelRegistry);

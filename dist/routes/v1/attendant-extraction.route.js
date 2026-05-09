@@ -31,6 +31,8 @@ const upload = (0, multer_1.default)({
     },
 });
 router.post('/', auth_1.authenticate, (0, auth_1.authorize)('attendance.write'), upload.single('image'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.createExtraction), attendant_extraction_1.attendantExtractionController.createExtraction);
+router.post('/test/document-ai', upload.single('image'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.testDocumentAi), attendant_extraction_1.attendantExtractionController.testDocumentAi);
+router.post('/test/pi', upload.single('image'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.testPi), attendant_extraction_1.attendantExtractionController.testPi);
 router.get('/pending-review', auth_1.authenticate, (0, auth_1.authorize)('attendance.read'), attendant_extraction_1.attendantExtractionController.listPendingReviewExtractions);
 router.get('/', auth_1.authenticate, (0, auth_1.authorize)('attendance.read'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.listExtractions), attendant_extraction_1.attendantExtractionController.listExtractions);
 router.get('/:id', auth_1.authenticate, (0, auth_1.authorize)('attendance.read'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.getExtraction), attendant_extraction_1.attendantExtractionController.getExtraction);

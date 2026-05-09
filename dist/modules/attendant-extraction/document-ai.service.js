@@ -8,7 +8,29 @@ const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const documentai_1 = require("@google-cloud/documentai");
 const config_1 = __importDefault(require("../../config/config"));
-const client = new documentai_1.DocumentProcessorServiceClient();
+const buildClient = () => {
+    const sa = config_1.default.googleServiceAccount;
+    if (sa.clientEmail && sa.privateKey) {
+        return new documentai_1.DocumentProcessorServiceClient({
+            credentials: {
+                type: sa.type,
+                project_id: sa.projectId,
+                private_key_id: sa.privateKeyId,
+                private_key: sa.privateKey,
+                client_email: sa.clientEmail,
+                client_id: sa.clientId,
+                token_uri: sa.tokenUri,
+                auth_provider_x509_cert_url: sa.authProviderCertUrl,
+                client_x509_cert_url: sa.clientCertUrl,
+                universe_domain: sa.universeDomain,
+            },
+            projectId: config_1.default.googleDocumentAi.projectId,
+        });
+    }
+    // Fallback to Application Default Credentials (useful in GCP-hosted environments)
+    return new documentai_1.DocumentProcessorServiceClient();
+};
+const client = buildClient();
 const mimeTypeFromPath = (filePath) => {
     var _a;
     const ext = path_1.default.extname(filePath).toLowerCase();

@@ -46,3 +46,21 @@ export const exportExtraction = {
     format: Joi.string().valid('jsonl', 'csv', 'docai').default('jsonl'),
   }),
 };
+
+export const testDocumentAi = {
+  query: Joi.object().keys({
+    includeRaw: Joi.boolean().truthy('true').falsy('false').default(false),
+  }),
+};
+
+export const testPi = {
+  query: Joi.object().keys({
+    includeRawResponse: Joi.boolean().truthy('true').falsy('false').default(false),
+    includeValidationErrors: Joi.boolean().truthy('true').falsy('false').default(true),
+  }),
+  body: Joi.object().keys({
+    prompt: Joi.string().optional(),
+    ocrText: Joi.string().optional(),
+    ocrLayoutSummary: Joi.object().optional(),
+  }),
+};

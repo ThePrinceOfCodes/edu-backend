@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listPendingReviewExtractions = exports.getExtractionById = exports.processExtraction = exports.createExtractionJob = exports.saveUpload = exports.serializeExtraction = exports.buildExtractionImageUrl = void 0;
+exports.runPiTest = exports.runDocumentAiTest = exports.listPendingReviewExtractions = exports.getExtractionById = exports.processExtraction = exports.createExtractionJob = exports.saveUpload = exports.serializeExtraction = exports.buildExtractionImageUrl = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const http_status_1 = __importDefault(require("http-status"));
@@ -17,6 +17,7 @@ const document_ai_service_1 = require("./document-ai.service");
 const pi_agent_extraction_service_1 = require("./pi-agent-extraction.service");
 const attendance_validation_service_1 = require("./attendance-validation.service");
 const push_notification_1 = require("../push-notification");
+const prompts_1 = require("./prompts");
 const buildStoredFileName = (file) => {
     const originalExtension = path_1.default.extname(file.originalname || '').toLowerCase();
     if (originalExtension) {
@@ -161,4 +162,66 @@ const getExtractionById = (id) => attendant_extraction_model_1.default.findById(
 exports.getExtractionById = getExtractionById;
 const listPendingReviewExtractions = (options) => attendant_extraction_model_1.default.paginate({ status: { $in: ['ocr_completed', 'pending_review', 'corrected'] } }, options);
 exports.listPendingReviewExtractions = listPendingReviewExtractions;
+const cleanupFiles = async (filePaths) => {
+    await Promise.all(filePaths.map(async (filePath) => {
+        if (!filePath) {
+            return;
+        }
+        try {
+            await promises_1.default.unlink(filePath);
+        }
+        catch (_a) {
+            // best-effort cleanup for test endpoints
+        }
+    }));
+};
+const runDocumentAiTest = async (file, options) => {
+    const upload = await (0, exports.saveUpload)(file);
+    const preprocessedImagePath = await (0, attendant_preprocess_service_1.preprocessAttendantImage)(upload.originalImagePath);
+    try {
+        const documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, upload.mimeType);
+        const layoutSummary = (0, document_ai_service_1.buildDocumentAiLayoutSummary)(documentAiOutput);
+        return {
+            documentAi: {
+                text: (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.text) || '',
+                layoutSummary,
+                rawAvailable: Boolean(options === null || options === void 0 ? void 0 : options.includeRaw),
+                raw: (options === null || options === void 0 ? void 0 : options.includeRaw) ? documentAiOutput : undefined,
+            },
+        };
+    }
+    finally {
+        await cleanupFiles([upload.originalImagePath, preprocessedImagePath]);
+    }
+};
+exports.runDocumentAiTest = runDocumentAiTest;
+const runPiTest = async (file, options) => {
+    const upload = await (0, exports.saveUpload)(file);
+    const promptUsed = (options === null || options === void 0 ? void 0 : options.prompt) || prompts_1.ATTENDANCE_EXTRACTION_PROMPT;
+    try {
+        const piResult = await (0, pi_agent_extraction_service_1.extractAttendanceWithPi)({
+            imagePath: upload.originalImagePath,
+            mimeType: upload.mimeType,
+            documentAiText: (options === null || options === void 0 ? void 0 : options.ocrText) || '',
+            documentAiLayoutSummary: (options === null || options === void 0 ? void 0 : options.ocrLayoutSummary) || {},
+        });
+        const validation = (0, attendance_validation_service_1.validateRawAttendanceExtraction)(piResult.rawResponse);
+        return {
+            pi: {
+                enabled: true,
+                provider: piResult.provider,
+                model: piResult.model,
+                promptUsed,
+                rawResponse: (options === null || options === void 0 ? void 0 : options.includeRawResponse) ? piResult.rawResponse : undefined,
+                parsedValid: validation.isValid,
+                validationErrors: (options === null || options === void 0 ? void 0 : options.includeValidationErrors) === false ? [] : validation.errors,
+                parsedOutput: validation.isValid ? validation.data : undefined,
+            },
+        };
+    }
+    finally {
+        await cleanupFiles([upload.originalImagePath]);
+    }
+};
+exports.runPiTest = runPiTest;
 //# sourceMappingURL=attendant-extraction.service.js.map

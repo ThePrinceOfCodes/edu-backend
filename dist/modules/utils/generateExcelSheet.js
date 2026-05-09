@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -37,8 +47,8 @@ const createWorkbook = ({ statsData, tableData, reviewData, assessmentData, addi
     if (statsData) {
         const ws = XLSX.utils.aoa_to_sheet(statsData);
         const colWidths = [
-            { wch: 35 },
-            { wch: 40 },
+            { wch: 35 }, // Width of column A (Name)
+            { wch: 40 }, // Width of column B (Age)
             { wch: 120 }, // Width of column B (Age)
         ];
         // Apply column widths to the worksheet
@@ -49,12 +59,12 @@ const createWorkbook = ({ statsData, tableData, reviewData, assessmentData, addi
         // Create a worksheet for Sheet 2
         const sheet2 = XLSX.utils.aoa_to_sheet(tableData);
         const colWidths2 = [
-            { wch: 50 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
+            { wch: 50 }, // Width of column A (Name)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
             { wch: 30 }, // Width of column B (Age)
         ];
         // Apply column widths to the worksheet
@@ -66,10 +76,10 @@ const createWorkbook = ({ statsData, tableData, reviewData, assessmentData, addi
         // Create a worksheet for Sheet 2
         const sheet3 = XLSX.utils.aoa_to_sheet(reviewData);
         const colWidths3 = [
-            { wch: 70 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
+            { wch: 70 }, // Width of column A (Question)
+            { wch: 40 }, // Width of column B (Response)
+            { wch: 40 }, // Width of column B (Response type)
+            { wch: 40 }, // Width of column B (Student name)
             { wch: 40 }, // Width of column B (Phone number)
         ];
         // Apply column widths to the worksheet
@@ -80,10 +90,10 @@ const createWorkbook = ({ statsData, tableData, reviewData, assessmentData, addi
     if (assessmentData) {
         const sheet3 = XLSX.utils.aoa_to_sheet(assessmentData);
         const colWidths3 = [
-            { wch: 70 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
+            { wch: 70 }, // Width of column A (Question)
+            { wch: 40 }, // Width of column B (Response)
+            { wch: 40 }, // Width of column B (Response type)
+            { wch: 40 }, // Width of column B (Student name)
             { wch: 40 }, // Width of column B (Phone number)
         ];
         // Apply column widths to the worksheet
@@ -116,21 +126,21 @@ const createSampleWorkbook = ({ tableData }) => {
         // Create a worksheet for Sheet 2
         const sheet2 = XLSX.utils.aoa_to_sheet(tableData);
         const colWidths2 = [
-            { wch: 50 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
-            { wch: 40 },
+            { wch: 50 }, // Width of column A (Name)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
+            { wch: 40 }, // Width of column B (Age)
             { wch: 30 }, // Width of column B (Age)
         ];
         // Apply column widths to the worksheet

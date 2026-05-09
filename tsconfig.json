@@ -48,7 +48,7 @@
     "noPropertyAccessFromIndexSignature": true,
     "allowUnusedLabels": true,
     "allowUnreachableCode": true,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "skipLibCheck": true
   },
   "include": [

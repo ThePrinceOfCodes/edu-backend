@@ -12,6 +12,7 @@ import { buildDocumentAiLayoutSummary, processDocument } from './document-ai.ser
 import { extractAttendanceWithPi, repairAttendanceJsonWithPi } from './pi-agent-extraction.service';
 import { validateRawAttendanceExtraction } from './attendance-validation.service';
 import { pushNotificationService } from '../push-notification';
+import { ATTENDANCE_EXTRACTION_PROMPT } from './prompts';
 
 const buildStoredFileName = (file: any) => {
   const originalExtension = path.extname(file.originalname || '').toLowerCase();
@@ -188,3 +189,80 @@ export const getExtractionById = (id: string) => AttendantExtraction.findById(id
 
 export const listPendingReviewExtractions = (options: any) =>
   AttendantExtraction.paginate({ status: { $in: ['ocr_completed', 'pending_review', 'corrected'] } }, options);
+
+const cleanupFiles = async (filePaths: Array<string | undefined | null>) => {
+  await Promise.all(
+    filePaths.map(async (filePath) => {
+      if (!filePath) {
+        return;
+      }
+
+      try {
+        await fs.unlink(filePath);
+      } catch {
+        // best-effort cleanup for test endpoints
+      }
+    })
+  );
+};
+
+export const runDocumentAiTest = async (file: any, options?: { includeRaw?: boolean }) => {
+  const upload = await saveUpload(file);
+  const preprocessedImagePath = await preprocessAttendantImage(upload.originalImagePath);
+
+  try {
+    const documentAiOutput = await processDocument(preprocessedImagePath, upload.mimeType);
+    const layoutSummary = buildDocumentAiLayoutSummary(documentAiOutput);
+
+    return {
+      documentAi: {
+        text: documentAiOutput?.text || '',
+        layoutSummary,
+        rawAvailable: Boolean(options?.includeRaw),
+        raw: options?.includeRaw ? documentAiOutput : undefined,
+      },
+    };
+  } finally {
+    await cleanupFiles([upload.originalImagePath, preprocessedImagePath]);
+  }
+};
+
+export const runPiTest = async (
+  file: any,
+  options?: {
+    prompt?: string;
+    ocrText?: string;
+    ocrLayoutSummary?: Record<string, any>;
+    includeRawResponse?: boolean;
+    includeValidationErrors?: boolean;
+  }
+) => {
+  const upload = await saveUpload(file);
+  const promptUsed = options?.prompt || ATTENDANCE_EXTRACTION_PROMPT;
+
+  try {
+    const piResult = await extractAttendanceWithPi({
+      imagePath: upload.originalImagePath,
+      mimeType: upload.mimeType,
+      documentAiText: options?.ocrText || '',
+      documentAiLayoutSummary: options?.ocrLayoutSummary || {},
+    });
+
+    const validation = validateRawAttendanceExtraction(piResult.rawResponse);
+
+    return {
+      pi: {
+        enabled: true,
+        provider: piResult.provider,
+        model: piResult.model,
+        promptUsed,
+        rawResponse: options?.includeRawResponse ? piResult.rawResponse : undefined,
+        parsedValid: validation.isValid,
+        validationErrors: options?.includeValidationErrors === false ? [] : validation.errors,
+        parsedOutput: validation.isValid ? validation.data : undefined,
+      },
+    };
+  } finally {
+    await cleanupFiles([upload.originalImagePath]);
+  }
+};
