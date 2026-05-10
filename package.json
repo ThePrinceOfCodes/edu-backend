@@ -4,7 +4,7 @@
   "description": "Nodejs backend for trackup",
   "main": "dist/index.js",
   "bin": "bin/createNodetsApp.cjs",
-  "author": "Emmanuel Onoja Ahman <ahmanemmanuel@gmail.com>",
+  "author": "Ezenwobodo Chukwuebuka <princejason109@gmail.com>",
   "license": "MIT",
   "engines": {
     "node": ">=14.20.1 <25"
