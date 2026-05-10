@@ -8,20 +8,29 @@ import { normaliseStatusMark } from './attendant-parser.service';
 import { getWorkingDays, zipMarksToWorkingDays } from './attendant-dates.util';
 
 const flattenAttendanceMarks = (attendance: Record<string, string>): string[] => {
-  const weekKeys = ['week_1', 'week_2', 'week_3', 'week_4', 'week_5'] as const;
-  return weekKeys.flatMap((weekKey) => {
-    const marks = String(attendance[weekKey] || '')
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 5);
+  return Object.keys(attendance)
+    .sort((a, b) => {
+      const aMatch = a.match(/^week_(\d+)$/);
+      const bMatch = b.match(/^week_(\d+)$/);
+
+      if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+      if (aMatch) return -1;
+      if (bMatch) return 1;
+      return a.localeCompare(b);
+    })
+    .flatMap((weekKey) => {
+      const marks = String(attendance[weekKey] || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 5);
 
     while (marks.length < 5) {
       marks.push('X');
     }
 
-    return marks;
-  });
+      return marks;
+    });
 };
 
 export const createAttendanceFromParsedRows = async (payload: {

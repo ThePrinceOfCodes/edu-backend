@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ATTENDANCE_EXTRACTION_REPAIR_PROMPT = exports.ATTENDANCE_EXTRACTION_PROMPT = exports.ATTENDANCE_EXTRACTION_PROMPT_VERSION = void 0;
-exports.ATTENDANCE_EXTRACTION_PROMPT_VERSION = 'attendance-v1';
+exports.ATTENDANCE_EXTRACTION_PROMPT_VERSION = 'attendance-v2';
 exports.ATTENDANCE_EXTRACTION_PROMPT = `You are extracting data from a school attendance register image.
 
 You must extract exactly what is visible in the image.
@@ -12,9 +12,9 @@ Rules:
 - Do not guess missing or unclear values.
 - Empty attendance cells must be represented with "_".
 - If a cell is unclear, return "uncertain".
-- Preserve attendance marks exactly as written.
-- Valid attendance values are: "P", "A", "X", "O", "-", "v", "_", and "uncertain".
-- Do not convert blank cells into P, X, O, A, v, or dash.
+- If a cell shows a dot, treat it as absent and return ".".
+- If a cell has any other visible mark, treat it as present and return "P".
+- If a cell is empty, leave it as "_".
 - Do not autocorrect names.
 - Do not invent admission numbers.
 - Do not infer values from neighboring rows.
@@ -28,6 +28,8 @@ Rules:
 - Do not skip attendance positions.
 
 Attendance format:
+Only include the attendance week keys that are visible in the image.
+
 Each attendance week must be represented as a single compact string, not as a day-by-day object.
 
 Each week string must contain exactly five space-separated values in this order:
@@ -86,11 +88,7 @@ Return JSON using this exact structure:
       "student_name": "",
       "admission_number": "",
       "attendance": {
-        "week_1": "P P P P P",
-        "week_2": "P P A P P",
-        "week_3": "P X P O -",
-        "week_4": "P _ P P P",
-        "week_5": "v v v v v"
+        "week_3": "P P P . P"
       },
       "uncertain_cells": []
     }

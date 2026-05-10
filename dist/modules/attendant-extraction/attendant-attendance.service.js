@@ -13,8 +13,19 @@ const school_1 = require("../school");
 const attendant_parser_service_1 = require("./attendant-parser.service");
 const attendant_dates_util_1 = require("./attendant-dates.util");
 const flattenAttendanceMarks = (attendance) => {
-    const weekKeys = ['week_1', 'week_2', 'week_3', 'week_4', 'week_5'];
-    return weekKeys.flatMap((weekKey) => {
+    return Object.keys(attendance)
+        .sort((a, b) => {
+        const aMatch = a.match(/^week_(\d+)$/);
+        const bMatch = b.match(/^week_(\d+)$/);
+        if (aMatch && bMatch)
+            return Number(aMatch[1]) - Number(bMatch[1]);
+        if (aMatch)
+            return -1;
+        if (bMatch)
+            return 1;
+        return a.localeCompare(b);
+    })
+        .flatMap((weekKey) => {
         const marks = String(attendance[weekKey] || '')
             .trim()
             .split(/\s+/)

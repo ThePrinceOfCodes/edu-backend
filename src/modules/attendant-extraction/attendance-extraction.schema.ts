@@ -38,12 +38,7 @@ export const AttendanceExtractionSchema = z.object({
       student_name: z.string(),
       admission_number: z.string(),
       attendance: z.object({
-        week_1: AttendanceWeekStringSchema,
-        week_2: AttendanceWeekStringSchema,
-        week_3: AttendanceWeekStringSchema,
-        week_4: AttendanceWeekStringSchema,
-        week_5: AttendanceWeekStringSchema,
-      }),
+      }).catchall(AttendanceWeekStringSchema),
       uncertain_cells: z.array(z.string()),
     })
   ),

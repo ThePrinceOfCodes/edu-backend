@@ -23,17 +23,14 @@ const buildJsonl = (extraction) => {
 const buildCsv = (extraction) => {
     var _a;
     const students = ((_a = extraction.humanCorrectedOutput) === null || _a === void 0 ? void 0 : _a.students) || [];
+    const weekKeys = ['week_1', 'week_2', 'week_3', 'week_4', 'week_5'];
     const rows = [
         [
             'document_id',
             'row_number',
             'student_name',
             'admission_number',
-            'week_1',
-            'week_2',
-            'week_3',
-            'week_4',
-            'week_5',
+            ...weekKeys,
             'uncertain_cells',
         ].join(','),
     ];
@@ -43,11 +40,7 @@ const buildCsv = (extraction) => {
             student.row_number,
             student.student_name,
             student.admission_number,
-            student.attendance.week_1,
-            student.attendance.week_2,
-            student.attendance.week_3,
-            student.attendance.week_4,
-            student.attendance.week_5,
+            ...weekKeys.map((weekKey) => { var _a; return ((_a = student.attendance) === null || _a === void 0 ? void 0 : _a[weekKey]) || ''; }),
             (student.uncertain_cells || []).join('|'),
         ]
             .map(toCsvValue)
