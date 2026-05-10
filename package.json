@@ -7,7 +7,7 @@
   "author": "Ezenwobodo Chukwuebuka <princejason109@gmail.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=14.20.1 <25"
+    "node": ">=20 <25"
   },
   "scripts": {
     "build": "tsc --build",
