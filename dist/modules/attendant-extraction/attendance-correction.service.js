@@ -8,6 +8,18 @@ const http_status_1 = __importDefault(require("http-status"));
 const errors_1 = require("../errors");
 const attendant_extraction_model_1 = __importDefault(require("./attendant-extraction.model"));
 const attendance_validation_service_1 = require("./attendance-validation.service");
+const attendant_attendance_service_1 = require("./attendant-attendance.service");
+const persistCorrectedAttendance = async (extraction, payload) => {
+    const createdAttendance = await (0, attendant_attendance_service_1.createAttendanceFromExtractionPayload)({
+        schoolId: extraction.schoolId,
+        termId: extraction.termId,
+        academicSessionId: extraction.academicSessionId,
+        startDate: new Date(extraction.startDate),
+        endDate: new Date(extraction.endDate),
+        students: payload.students,
+    });
+    extraction.createdAttendanceIds = createdAttendance.map((item) => String(item.id || item._id)).filter(Boolean);
+};
 const CORRECTABLE_STATUSES = new Set(['ocr_completed', 'pending_review', 'corrected']);
 const correctExtraction = async (id, payload) => {
     const extraction = await attendant_extraction_model_1.default.findById(id);
@@ -22,6 +34,7 @@ const correctExtraction = async (id, payload) => {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, validation.errors.join(', '));
     }
     extraction.humanCorrectedOutput = validation.data;
+    await persistCorrectedAttendance(extraction, validation.data);
     extraction.status = 'corrected';
     extraction.validationErrors = [];
     await extraction.save();
@@ -41,6 +54,7 @@ const approveExtraction = async (id, approvedBy) => {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, validation.errors.join(', '));
     }
     extraction.humanCorrectedOutput = validation.data;
+    await persistCorrectedAttendance(extraction, validation.data);
     extraction.approvalMeta = {
         approvedBy,
         approvedAt: new Date(),

@@ -12,7 +12,7 @@ const HEADER_TOKENS = ['week ending', 'signature', 'total', 'm total', 'a total'
  */
 const normaliseStatusMark = (mark) => {
     const m = mark.trim().toLowerCase();
-    if (/^(v|p|present|✓)$/.test(m))
+    if (/^(v|p|o|\/|present|✓)$/.test(m))
         return 'present';
     if (/^(x|a|absent|\.{1,3}|-)$/.test(m))
         return 'absent';

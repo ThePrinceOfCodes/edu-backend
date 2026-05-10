@@ -13,4 +13,14 @@ export const attendantExtractionQueue = new Queue(ATTENDANT_EXTRACTION_QUEUE, {
   connection: connection as any,
 });
 
-export const attendantExtractionJobName = 'process-attendant-extraction';
+export const attendantExtractionJobName = 'processAttendantExtraction';
+
+export const attendantExtractionJobOptions = {
+  attempts: 5,
+  backoff: {
+    type: 'exponential',
+    delay: 30_000,
+  },
+  removeOnComplete: true,
+  removeOnFail: 100,
+};

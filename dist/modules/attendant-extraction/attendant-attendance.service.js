@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createAttendanceFromParsedRows = void 0;
+exports.createAttendanceFromExtractionPayload = exports.createAttendanceFromParsedRows = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const errors_1 = require("../errors");
 const attendance_model_1 = __importDefault(require("../attendance/attendance.model"));
@@ -12,6 +12,20 @@ const term_1 = require("../term");
 const school_1 = require("../school");
 const attendant_parser_service_1 = require("./attendant-parser.service");
 const attendant_dates_util_1 = require("./attendant-dates.util");
+const flattenAttendanceMarks = (attendance) => {
+    const weekKeys = ['week_1', 'week_2', 'week_3', 'week_4', 'week_5'];
+    return weekKeys.flatMap((weekKey) => {
+        const marks = String(attendance[weekKey] || '')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 5);
+        while (marks.length < 5) {
+            marks.push('X');
+        }
+        return marks;
+    });
+};
 const createAttendanceFromParsedRows = async (payload) => {
     var _a;
     const school = await school_1.School.findById(payload.schoolId);
@@ -58,4 +72,18 @@ const createAttendanceFromParsedRows = async (payload) => {
     return created;
 };
 exports.createAttendanceFromParsedRows = createAttendanceFromParsedRows;
+const createAttendanceFromExtractionPayload = async (payload) => {
+    return (0, exports.createAttendanceFromParsedRows)({
+        schoolId: payload.schoolId,
+        termId: payload.termId,
+        academicSessionId: payload.academicSessionId,
+        workingDays: (0, attendant_dates_util_1.getWorkingDays)(payload.startDate, payload.endDate),
+        rows: payload.students.map((student) => ({
+            admissionNumber: student.admission_number,
+            studentName: student.student_name,
+            statusMarks: flattenAttendanceMarks(student.attendance),
+        })),
+    });
+};
+exports.createAttendanceFromExtractionPayload = createAttendanceFromExtractionPayload;
 //# sourceMappingURL=attendant-attendance.service.js.map

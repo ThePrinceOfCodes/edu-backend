@@ -18,6 +18,8 @@ const pi_agent_extraction_service_1 = require("./pi-agent-extraction.service");
 const attendance_validation_service_1 = require("./attendance-validation.service");
 const push_notification_1 = require("../push-notification");
 const prompts_1 = require("./prompts");
+const attendant_parser_service_1 = require("./attendant-parser.service");
+const attendant_attendance_service_1 = require("./attendant-attendance.service");
 const buildStoredFileName = (file) => {
     const originalExtension = path_1.default.extname(file.originalname || '').toLowerCase();
     if (originalExtension) {
@@ -42,6 +44,30 @@ const normalizePublicFilePath = (filePath) => {
         return null;
     }
     return `uploads/attendant-extractions/${fileName}`;
+};
+const buildOcrSummary = (documentAiOutput) => {
+    const parsed = (0, attendant_parser_service_1.parseAttendantDocument)(documentAiOutput);
+    return {
+        pageCount: Array.isArray(documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.pages) ? documentAiOutput.pages.length : 0,
+        tableCount: Array.isArray(documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.pages)
+            ? documentAiOutput.pages.reduce((count, page) => { var _a; return count + (((_a = page === null || page === void 0 ? void 0 : page.tables) === null || _a === void 0 ? void 0 : _a.length) || 0); }, 0)
+            : 0,
+        formFieldCount: Array.isArray(documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.pages)
+            ? documentAiOutput.pages.reduce((count, page) => { var _a; return count + (((_a = page === null || page === void 0 ? void 0 : page.formFields) === null || _a === void 0 ? void 0 : _a.length) || 0); }, 0)
+            : 0,
+        totalRows: parsed.sheetMeta['totalRows'],
+        confidentRows: parsed.sheetMeta['confidentRows'],
+        unmatchedRowCount: parsed.sheetMeta['unmatchedRows'],
+        detectedHeaders: ['Name', 'No.', 'Admission', 'Status', 'Week ending'],
+        candidateRows: parsed.rows.slice(0, 15).map((row) => ({
+            rowNumber: row.rowNumber,
+            studentName: row.studentName,
+            admissionNumber: row.admissionNumber,
+            statusMarks: row.statusMarks,
+            confidence: row.confidence,
+            source: row.source,
+        })),
+    };
 };
 const buildExtractionImageUrl = (filePath, publicBaseUrl) => {
     const publicPath = normalizePublicFilePath(filePath);
@@ -88,60 +114,91 @@ const createExtractionJob = async (upload, context) => {
         endDate: context.endDate,
         status: 'queued',
     });
-    await attendant_extraction_queue_1.attendantExtractionQueue.add(attendant_extraction_queue_1.attendantExtractionJobName, { extractionId: extraction['_id'] });
+    await attendant_extraction_queue_1.attendantExtractionQueue.add(attendant_extraction_queue_1.attendantExtractionJobName, { extractionId: extraction['_id'] }, attendant_extraction_queue_1.attendantExtractionJobOptions);
     return extraction;
 };
 exports.createExtractionJob = createExtractionJob;
+const isRetryableExtractionError = (error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return /rate limit|429|quota|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED/i.test(message);
+};
 const processExtraction = async (extractionId) => {
+    var _a, _b;
     const extraction = await attendant_extraction_model_1.default.findById(extractionId);
     if (!extraction)
         throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Extraction not found');
     try {
         extraction.status = 'processing';
+        extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { stage: extraction.rawOcrJson ? 'pi_pending' : 'document_ai_pending', retryCount: Number(((_a = extraction.processingMeta) === null || _a === void 0 ? void 0 : _a.retryCount) || 0) });
         extraction.error = undefined;
         await extraction.save();
-        const preprocessedImagePath = await (0, attendant_preprocess_service_1.preprocessAttendantImage)(extraction.originalImagePath);
-        extraction.preprocessedImagePath = preprocessedImagePath;
-        let documentAiOutput;
-        try {
-            documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, extraction.mimeType);
-        }
-        catch (error) {
-            if (!(0, document_ai_service_1.isDocumentAiInvalidArgumentError)(error)) {
-                throw error;
+        let documentAiOutput = extraction.rawOcrJson || undefined;
+        let ocrSummary = (_b = extraction.processingMeta) === null || _b === void 0 ? void 0 : _b['ocrSummary'];
+        if (!documentAiOutput) {
+            const preprocessedImagePath = extraction.preprocessedImagePath || await (0, attendant_preprocess_service_1.preprocessAttendantImage)(extraction.originalImagePath);
+            extraction.preprocessedImagePath = preprocessedImagePath;
+            try {
+                documentAiOutput = await (0, document_ai_service_1.processDocument)(preprocessedImagePath, extraction.mimeType);
             }
-            logger_1.logger.warn('[DocumentAI] Preprocessed file rejected, retrying with original upload');
-            documentAiOutput = await (0, document_ai_service_1.processDocument)(extraction.originalImagePath, extraction.mimeType);
+            catch (error) {
+                if ((0, document_ai_service_1.isDocumentAiInvalidArgumentError)(error)) {
+                    logger_1.logger.warn('[DocumentAI] Preprocessed file rejected, retrying with original upload');
+                    documentAiOutput = await (0, document_ai_service_1.processDocument)(extraction.originalImagePath, extraction.mimeType);
+                }
+                else if (isRetryableExtractionError(error)) {
+                    extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { stage: 'document_ai_pending', lastRateLimitError: error instanceof Error ? error.message : String(error) });
+                    await extraction.save();
+                    throw error;
+                }
+                else {
+                    throw error;
+                }
+            }
+            const layoutSummary = (0, document_ai_service_1.buildDocumentAiLayoutSummary)(documentAiOutput || {});
+            ocrSummary = buildOcrSummary(documentAiOutput || {});
+            extraction.rawOcrJson = (documentAiOutput || {});
+            extraction.rawText = (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput['text']) || '';
+            extraction.documentAiRawOutput = (documentAiOutput || {});
+            extraction.documentAiText = (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput['text']) || '';
+            extraction.documentAiLayoutSummary = layoutSummary;
+            extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { stage: 'ocr_completed', ocrSummary });
+            extraction.status = 'ocr_completed';
+            extraction.validationErrors = [];
+            await extraction.save();
         }
-        const layoutSummary = (0, document_ai_service_1.buildDocumentAiLayoutSummary)(documentAiOutput);
-        extraction.rawOcrJson = documentAiOutput;
-        extraction.rawText = (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.text) || '';
-        extraction.documentAiRawOutput = documentAiOutput;
-        extraction.documentAiText = (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.text) || '';
-        extraction.documentAiLayoutSummary = layoutSummary;
-        extraction.status = 'ocr_completed';
-        extraction.validationErrors = [];
-        await extraction.save();
+        else if (!ocrSummary) {
+            ocrSummary = buildOcrSummary(documentAiOutput || {});
+            extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { ocrSummary });
+            await extraction.save();
+        }
         if (!config_1.default.attendanceExtraction.usePi) {
             return extraction;
         }
-        const piResult = await (0, pi_agent_extraction_service_1.extractAttendanceWithPi)({
-            imagePath: extraction.originalImagePath,
-            mimeType: extraction.mimeType,
-            documentAiText: extraction.documentAiText || '',
-            documentAiLayoutSummary: layoutSummary,
-        });
+        let piResult;
+        try {
+            piResult = await (0, pi_agent_extraction_service_1.extractAttendanceWithPi)({
+                imagePath: extraction.originalImagePath,
+                mimeType: extraction.mimeType,
+                ocrSummary: ocrSummary || {},
+            });
+        }
+        catch (error) {
+            if (isRetryableExtractionError(error)) {
+                extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { stage: 'pi_pending', lastRateLimitError: error instanceof Error ? error.message : String(error) });
+                await extraction.save();
+            }
+            throw error;
+        }
         extraction.llmRawResponse = piResult.rawResponse;
         extraction.provider = piResult.provider;
         extraction.set('model', piResult.model);
-        extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { promptVersion: piResult.promptVersion });
+        extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { promptVersion: piResult.promptVersion, stage: 'validation_pending' });
         let validation = (0, attendance_validation_service_1.validateRawAttendanceExtraction)(piResult.rawResponse);
         if (!validation.isValid) {
             const repairedResponse = await (0, pi_agent_extraction_service_1.repairAttendanceJsonWithPi)(piResult.rawResponse, {
                 imagePath: extraction.originalImagePath,
                 mimeType: extraction.mimeType,
-                documentAiText: extraction.documentAiText || '',
-                documentAiLayoutSummary: layoutSummary,
+                ocrSummary: ocrSummary || {},
             });
             extraction.llmRawResponse = repairedResponse;
             validation = (0, attendance_validation_service_1.validateRawAttendanceExtraction)(repairedResponse);
@@ -154,6 +211,19 @@ const processExtraction = async (extractionId) => {
         }
         extraction.llmExtractedOutput = validation.data;
         extraction.validationErrors = [];
+        const createdAttendance = await (0, attendant_attendance_service_1.createAttendanceFromExtractionPayload)({
+            schoolId: extraction.schoolId,
+            termId: extraction.termId,
+            academicSessionId: extraction.academicSessionId,
+            startDate: new Date(extraction.startDate),
+            endDate: new Date(extraction.endDate),
+            students: validation.data.students.map((student) => ({
+                admission_number: student.admission_number,
+                student_name: student.student_name,
+                attendance: student.attendance,
+            })),
+        });
+        extraction.createdAttendanceIds = createdAttendance.map((item) => String(item.id || item._id)).filter(Boolean);
         extraction.status = 'pending_review';
         await extraction.save();
         await push_notification_1.pushNotificationService.sendAttendanceReviewAlert(extraction);
@@ -201,10 +271,12 @@ const runDocumentAiTest = async (file, options) => {
             documentAiOutput = await (0, document_ai_service_1.processDocument)(upload.originalImagePath, upload.mimeType);
         }
         const layoutSummary = (0, document_ai_service_1.buildDocumentAiLayoutSummary)(documentAiOutput);
+        const ocrSummary = buildOcrSummary(documentAiOutput);
         return {
             documentAi: {
                 text: (documentAiOutput === null || documentAiOutput === void 0 ? void 0 : documentAiOutput.text) || '',
                 layoutSummary,
+                ocrSummary,
                 rawAvailable: Boolean(options === null || options === void 0 ? void 0 : options.includeRaw),
                 raw: (options === null || options === void 0 ? void 0 : options.includeRaw) ? documentAiOutput : undefined,
             },
@@ -222,8 +294,10 @@ const runPiTest = async (file, options) => {
         const piResult = await (0, pi_agent_extraction_service_1.extractAttendanceWithPi)({
             imagePath: upload.originalImagePath,
             mimeType: upload.mimeType,
-            documentAiText: (options === null || options === void 0 ? void 0 : options.ocrText) || '',
-            documentAiLayoutSummary: (options === null || options === void 0 ? void 0 : options.ocrLayoutSummary) || {},
+            ocrSummary: (options === null || options === void 0 ? void 0 : options.ocrSummary) || {
+                documentAiText: (options === null || options === void 0 ? void 0 : options.ocrText) || '',
+                documentAiLayoutSummary: (options === null || options === void 0 ? void 0 : options.ocrLayoutSummary) || {},
+            },
         });
         const validation = (0, attendance_validation_service_1.validateRawAttendanceExtraction)(piResult.rawResponse);
         return {

@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AttendanceExtractionSchema = exports.AttendanceWeekStringSchema = void 0;
 const zod_1 = require("zod");
-const ALLOWED_ATTENDANCE_VALUES = new Set(['P', 'A', 'X', 'O', '-', 'v', '_', 'uncertain']);
+const ALLOWED_ATTENDANCE_VALUES = new Set(['P', 'A', 'X', 'O', '/', '-', 'V', 'v', '_', 'uncertain', '.', '..', '...']);
 exports.AttendanceWeekStringSchema = zod_1.z.string().refine((value) => {
     const parts = value.trim().split(/\s+/);
     if (parts.length !== 5) {

@@ -42,7 +42,7 @@ const HEADER_TOKENS = ['week ending', 'signature', 'total', 'm total', 'a total'
  */
 export const normaliseStatusMark = (mark: string): 'present' | 'absent' | 'late' | 'excused' | null => {
   const m = mark.trim().toLowerCase();
-  if (/^(v|p|present|✓)$/.test(m)) return 'present';
+  if (/^(v|p|o|\/|present|✓)$/.test(m)) return 'present';
   if (/^(x|a|absent|\.{1,3}|-)$/.test(m)) return 'absent';
   if (/^(l|late)$/.test(m)) return 'late';
   if (/^(e|excused)$/.test(m)) return 'excused';

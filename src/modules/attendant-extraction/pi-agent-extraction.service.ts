@@ -12,8 +12,7 @@ import {
 type PiExtractionInput = {
   imagePath: string;
   mimeType: string;
-  documentAiText: string;
-  documentAiLayoutSummary: Record<string, any>;
+  ocrSummary: Record<string, any>;
 };
 
 type PiExtractionResult = {
@@ -58,13 +57,8 @@ const resolveModel = async (modelRegistry: any) => {
   return selectedModel;
 };
 
-const createPrompt = (input: PiExtractionInput) => {
-  const context = {
-    document_ai_text: input.documentAiText,
-    document_ai_layout_summary: input.documentAiLayoutSummary,
-  };
-
-  return `${ATTENDANCE_EXTRACTION_PROMPT}\n\nOCR and layout context:\n${JSON.stringify(context)}`;
+const createPrompt = (_input: PiExtractionInput) => {
+  return `${ATTENDANCE_EXTRACTION_PROMPT}`;
 };
 
 const createImagePayload = async (imagePath: string, mimeType: string) => {
@@ -107,7 +101,6 @@ const createPiSession = async () => {
 };
 
 const promptPiSession = async (session: any, prompt: string, imagePath: string, mimeType: string): Promise<string> => {
-
   await session.prompt(prompt, {
     images: [await createImagePayload(imagePath, mimeType)],
   });
@@ -141,10 +134,7 @@ export const extractAttendanceWithPi = async (input: PiExtractionInput): Promise
 export const repairAttendanceJsonWithPi = async (rawResponse: string, input: PiExtractionInput): Promise<string> => {
   logger.warn('Retrying attendant extraction with JSON repair prompt');
 
-  const repairPrompt = `${ATTENDANCE_EXTRACTION_REPAIR_PROMPT}\n\nPrevious response:\n${rawResponse}\n\nOCR context:\n${JSON.stringify({
-    document_ai_text: input.documentAiText,
-    document_ai_layout_summary: input.documentAiLayoutSummary,
-  })}`;
+  const repairPrompt = `${ATTENDANCE_EXTRACTION_REPAIR_PROMPT}\n\nPrevious response:\n${rawResponse}`;
 
   const { session } = await createPiSession();
 
