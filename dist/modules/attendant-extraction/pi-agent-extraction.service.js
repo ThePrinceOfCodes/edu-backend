@@ -8,8 +8,17 @@ const promises_1 = __importDefault(require("fs/promises"));
 const config_1 = __importDefault(require("../../config/config"));
 const errors_1 = require("../errors");
 const logger_1 = require("../logger");
+const pi_oauth_service_1 = require("./pi-oauth.service");
 const prompts_1 = require("./prompts");
 const resolveModel = async (modelRegistry) => {
+    const oauthProvider = (0, pi_oauth_service_1.getRuntimePiOAuthProviderId)();
+    if (oauthProvider === 'openai-codex') {
+        const codexModel = modelRegistry.find('openai-codex', 'gpt-5.3-codex');
+        if (!codexModel) {
+            throw new errors_1.ApiError(500, "Configured Pi model 'openai-codex/gpt-5.3-codex' was not found");
+        }
+        return codexModel;
+    }
     const configuredProvider = config_1.default.attendanceExtraction.provider;
     const configuredModel = config_1.default.attendanceExtraction.model;
     if (configuredProvider && configuredModel) {
@@ -29,12 +38,8 @@ const resolveModel = async (modelRegistry) => {
     }
     return selectedModel;
 };
-const createPrompt = (input) => {
-    const context = {
-        document_ai_text: input.documentAiText,
-        document_ai_layout_summary: input.documentAiLayoutSummary,
-    };
-    return `${prompts_1.ATTENDANCE_EXTRACTION_PROMPT}\n\nOCR and layout context:\n${JSON.stringify(context)}`;
+const createPrompt = (_input) => {
+    return `${prompts_1.ATTENDANCE_EXTRACTION_PROMPT}`;
 };
 const createImagePayload = async (imagePath, mimeType) => {
     const imageBuffer = await promises_1.default.readFile(imagePath);
@@ -48,15 +53,15 @@ const loadPiSdk = async () => new Function('return import("@earendil-works/pi-co
 const createPiSession = async () => {
     const sdk = await loadPiSdk();
     const authStorage = sdk.AuthStorage.create();
-    if (config_1.default.attendanceExtraction.apiKeys.google) {
-        authStorage.setRuntimeApiKey('google', config_1.default.attendanceExtraction.apiKeys.google);
+    const oauthKey = await (0, pi_oauth_service_1.getPiOAuthApiKey)();
+    const oauthProvider = (0, pi_oauth_service_1.getRuntimePiOAuthProviderId)();
+    if (oauthKey && oauthProvider) {
+        authStorage.setRuntimeApiKey(oauthProvider, oauthKey);
+        logger_1.logger.debug(`[pi-agent] Using Pi OAuth key for provider '${oauthProvider}'`);
     }
-    if (config_1.default.attendanceExtraction.apiKeys.openai) {
-        authStorage.setRuntimeApiKey('openai', config_1.default.attendanceExtraction.apiKeys.openai);
-    }
-    if (config_1.default.attendanceExtraction.apiKeys.anthropic) {
-        authStorage.setRuntimeApiKey('anthropic', config_1.default.attendanceExtraction.apiKeys.anthropic);
-    }
+    const { openai } = config_1.default.attendanceExtraction.apiKeys;
+    if (openai)
+        authStorage.setRuntimeApiKey('openai', openai);
     const modelRegistry = sdk.ModelRegistry.create(authStorage);
     const model = await resolveModel(modelRegistry);
     const { session } = await sdk.createAgentSession({
@@ -96,10 +101,7 @@ const extractAttendanceWithPi = async (input) => {
 exports.extractAttendanceWithPi = extractAttendanceWithPi;
 const repairAttendanceJsonWithPi = async (rawResponse, input) => {
     logger_1.logger.warn('Retrying attendant extraction with JSON repair prompt');
-    const repairPrompt = `${prompts_1.ATTENDANCE_EXTRACTION_REPAIR_PROMPT}\n\nPrevious response:\n${rawResponse}\n\nOCR context:\n${JSON.stringify({
-        document_ai_text: input.documentAiText,
-        document_ai_layout_summary: input.documentAiLayoutSummary,
-    })}`;
+    const repairPrompt = `${prompts_1.ATTENDANCE_EXTRACTION_REPAIR_PROMPT}\n\nPrevious response:\n${rawResponse}`;
     const { session } = await createPiSession();
     try {
         return await promptPiSession(session, repairPrompt, input.imagePath, input.mimeType);

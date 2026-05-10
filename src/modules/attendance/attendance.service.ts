@@ -1,8 +1,9 @@
 import httpStatus from 'http-status';
 import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
-import ClassModel from '../class/class.model';
+
 import { School } from '../school';
+import { ClassModel } from '../class';
 import { Student } from '../student';
 import { termService, Term } from '../term';
 import Attendance from './attendance.model';
@@ -28,6 +29,8 @@ type CalendarSummaryContext = {
   year?: number;
   publicBaseUrl?: string;
 };
+
+
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -513,3 +516,4 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     },
   };
 };
+

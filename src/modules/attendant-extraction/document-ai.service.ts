@@ -3,7 +3,33 @@ import path from 'path';
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
 import config from '../../config/config';
 
-const client = new DocumentProcessorServiceClient();
+const buildClient = (): DocumentProcessorServiceClient => {
+  const sa = config.googleServiceAccount;
+
+  if (sa.clientEmail && sa.privateKey) {
+    return new DocumentProcessorServiceClient({
+      credentials: {
+        type: sa.type,
+        project_id: sa.projectId,
+        private_key_id: sa.privateKeyId,
+        private_key: sa.privateKey,
+        client_email: sa.clientEmail,
+        client_id: sa.clientId,
+        token_uri: sa.tokenUri,
+        auth_provider_x509_cert_url: sa.authProviderCertUrl,
+        client_x509_cert_url: sa.clientCertUrl,
+        universe_domain: sa.universeDomain,
+      } as any,
+      projectId: config.googleDocumentAi.projectId,
+    });
+  }
+
+  // Fallback to Application Default Credentials (useful in GCP-hosted environments)
+  return new DocumentProcessorServiceClient();
+};
+
+const client = buildClient();
+
 
 const mimeTypeFromPath = (filePath: string): string => {
   const ext = path.extname(filePath).toLowerCase();
@@ -21,7 +47,8 @@ const mimeTypeFromPath = (filePath: string): string => {
 };
 
 export const processDocument = async (filePath: string, mimeType?: string) => {
-  const resolvedMimeType = mimeType ?? mimeTypeFromPath(filePath);
+  const fileMimeType = mimeTypeFromPath(filePath);
+  const resolvedMimeType = fileMimeType || mimeType || 'image/jpeg';
   if (!config.googleDocumentAi.projectId || !config.googleDocumentAi.location || !config.googleDocumentAi.processorId) {
     throw new Error('Google Document AI config is missing');
   }
@@ -42,6 +69,11 @@ export const processDocument = async (filePath: string, mimeType?: string) => {
     timeout: 600000,
   } as any);
   return result.document;
+};
+
+export const isDocumentAiInvalidArgumentError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('INVALID_ARGUMENT') || message.includes('Request contains an invalid argument');
 };
 
 export const buildDocumentAiLayoutSummary = (document: any) => {

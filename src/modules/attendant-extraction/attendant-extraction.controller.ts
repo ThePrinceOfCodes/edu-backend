@@ -88,3 +88,28 @@ export const exportExtraction = catchAsync(async (req: Request, res: Response) =
   res.setHeader('Content-Disposition', `attachment; filename="${exported.fileName}"`);
   res.status(httpStatus.OK).send(exported.body);
 });
+
+export const testDocumentAi = catchAsync(async (req: Request, res: Response) => {
+  const file = (req as Request & { file?: any }).file;
+  const result = await attendantExtractionService.runDocumentAiTest(file, {
+    includeRaw: req.query['includeRaw'] === 'true',
+  });
+
+  res.status(httpStatus.OK).send(result);
+});
+
+export const testPi = catchAsync(async (req: Request, res: Response) => {
+  const file = (req as Request & { file?: any }).file;
+  const options: Parameters<typeof attendantExtractionService.runPiTest>[1] = {
+    includeRawResponse: req.query['includeRawResponse'] === 'true',
+    includeValidationErrors: req.query['includeValidationErrors'] !== 'false',
+  };
+  
+  if (req.body?.['prompt']) options.prompt = req.body['prompt'] as string;
+  if (req.body?.['ocrText']) options.ocrText = req.body['ocrText'] as string;
+  if (req.body?.['ocrLayoutSummary']) options.ocrLayoutSummary = req.body['ocrLayoutSummary'] as Record<string, any>;
+
+  const result = await attendantExtractionService.runPiTest(file, options);
+
+  res.status(httpStatus.OK).send(result);
+});

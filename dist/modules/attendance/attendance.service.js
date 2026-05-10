@@ -6,8 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAttendanceCalendarSummary = exports.getAttendanceSummary = exports.queryAttendance = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const errors_1 = require("../errors");
-const class_model_1 = __importDefault(require("../class/class.model"));
 const school_1 = require("../school");
+const class_1 = require("../class");
 const student_1 = require("../student");
 const term_1 = require("../term");
 const attendance_model_1 = __importDefault(require("./attendance.model"));
@@ -83,7 +83,7 @@ const resolveSchoolContext = async (actor, schoolId) => {
     return school;
 };
 const resolveClassContext = async (schoolId, classId) => {
-    const classDoc = await class_model_1.default.findById(classId);
+    const classDoc = await class_1.ClassModel.findById(classId);
     if (!classDoc) {
         throw new errors_1.ApiError(http_status_1.default.NOT_FOUND, 'Class not found');
     }
@@ -161,7 +161,7 @@ const getAttendanceSummary = async (actor, context) => {
     }
     const students = await student_1.Student.find(studentFilter).sort({ lastName: 1, firstName: 1 });
     const classIds = Array.from(new Set(students.map((student) => student.classId).filter(Boolean)));
-    const classes = classIds.length > 0 ? await class_model_1.default.find({ _id: { $in: classIds } }) : [];
+    const classes = classIds.length > 0 ? await class_1.ClassModel.find({ _id: { $in: classIds } }) : [];
     const classById = new Map(classes.map((classItem) => [classItem.id, classItem]));
     const records = await attendance_model_1.default.find({
         school: school.id,

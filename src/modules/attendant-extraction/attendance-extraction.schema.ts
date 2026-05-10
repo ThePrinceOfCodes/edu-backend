@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const ALLOWED_ATTENDANCE_VALUES = new Set(['P', 'A', 'X', 'O', '-', 'v', '_', 'uncertain']);
+const ALLOWED_ATTENDANCE_VALUES = new Set(['P', 'A', 'X', 'O', '/', '-', 'V', 'v', '_', 'uncertain', '.', '..', '...']);
 
 export const AttendanceWeekStringSchema = z.string().refine(
   (value) => {

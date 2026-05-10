@@ -31,3 +31,5 @@ export const getAttendanceCalendarSummary = {
     year: Joi.number().integer().min(2000).max(3000).optional(),
   }),
 };
+
+

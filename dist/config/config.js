@@ -41,6 +41,16 @@ const envVarsSchema = joi_1.default.object()
     GOOGLE_CLOUD_LOCATION: joi_1.default.string().valid('us', 'eu').optional(),
     GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID: joi_1.default.string().optional(),
     DOCUMENT_AI_PROCESSOR_ID: joi_1.default.string().optional(),
+    GCP_SA_TYPE: joi_1.default.string().default('service_account'),
+    GCP_SA_PROJECT_ID: joi_1.default.string().optional(),
+    GCP_SA_PRIVATE_KEY_ID: joi_1.default.string().allow('').optional(),
+    GCP_SA_PRIVATE_KEY: joi_1.default.string().allow('').optional(),
+    GCP_SA_CLIENT_EMAIL: joi_1.default.string().allow('').optional(),
+    GCP_SA_CLIENT_ID: joi_1.default.string().allow('').optional(),
+    GCP_SA_TOKEN_URI: joi_1.default.string().default('https://oauth2.googleapis.com/token'),
+    GCP_SA_AUTH_PROVIDER_CERT_URL: joi_1.default.string().default('https://www.googleapis.com/oauth2/v1/certs'),
+    GCP_SA_CLIENT_CERT_URL: joi_1.default.string().allow('').optional(),
+    GCP_SA_UNIVERSE_DOMAIN: joi_1.default.string().default('googleapis.com'),
     OPENAI_API_KEY: joi_1.default.string().allow('').optional(),
     GEMINI_API_KEY: joi_1.default.string().allow('').optional(),
     ANTHROPIC_API_KEY: joi_1.default.string().allow('').optional(),
@@ -50,6 +60,10 @@ const envVarsSchema = joi_1.default.object()
     ATTENDANT_EXTRACTION_PROVIDER: joi_1.default.string().valid('google', 'openai', 'anthropic').optional(),
     ATTENDANT_EXTRACTION_MODEL: joi_1.default.string().trim().optional(),
     ATTENDANT_EXTRACTION_MAX_UPLOAD_MB: joi_1.default.number().integer().min(1).default(10),
+    PI_OAUTH_PROVIDER: joi_1.default.string().trim().optional().description('Pi OAuth provider key, e.g. openai-codex'),
+    PI_OAUTH_ACCESS_TOKEN: joi_1.default.string().allow('').optional(),
+    PI_OAUTH_REFRESH_TOKEN: joi_1.default.string().allow('').optional(),
+    PI_OAUTH_EXPIRES_AT: joi_1.default.number().optional(),
 })
     .unknown();
 const { value: envVars, error } = envVarsSchema.prefs({ errors: { label: 'key' } }).validate(process.env);
@@ -114,6 +128,20 @@ const config = {
         location: envVars.GOOGLE_CLOUD_LOCATION,
         processorId: envVars.DOCUMENT_AI_PROCESSOR_ID || envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
     },
+    googleServiceAccount: {
+        type: envVars.GCP_SA_TYPE,
+        projectId: envVars.GCP_SA_PROJECT_ID,
+        privateKeyId: envVars.GCP_SA_PRIVATE_KEY_ID,
+        privateKey: envVars.GCP_SA_PRIVATE_KEY
+            ? envVars.GCP_SA_PRIVATE_KEY.replace(/\\n/g, '\n')
+            : undefined,
+        clientEmail: envVars.GCP_SA_CLIENT_EMAIL,
+        clientId: envVars.GCP_SA_CLIENT_ID,
+        tokenUri: envVars.GCP_SA_TOKEN_URI,
+        authProviderCertUrl: envVars.GCP_SA_AUTH_PROVIDER_CERT_URL,
+        clientCertUrl: envVars.GCP_SA_CLIENT_CERT_URL,
+        universeDomain: envVars.GCP_SA_UNIVERSE_DOMAIN,
+    },
     pushNotifications: {
         enabled: envVars.PUSH_NOTIFICATIONS_ENABLED,
         projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
@@ -129,6 +157,13 @@ const config = {
             google: envVars.GEMINI_API_KEY,
             anthropic: envVars.ANTHROPIC_API_KEY,
         },
+    },
+    piOAuth: {
+        provider: envVars.PI_OAUTH_PROVIDER,
+        accessToken: envVars.PI_OAUTH_ACCESS_TOKEN,
+        refreshToken: envVars.PI_OAUTH_REFRESH_TOKEN,
+        expiresAt: envVars.PI_OAUTH_EXPIRES_AT,
+        clientId: envVars.PI_OAUTH_CLIENT_ID,
     },
 };
 exports.default = config;

@@ -5,7 +5,24 @@ import { Student } from '../student';
 import { Term } from '../term';
 import { School } from '../school';
 import { normaliseStatusMark } from './attendant-parser.service';
-import { zipMarksToWorkingDays } from './attendant-dates.util';
+import { getWorkingDays, zipMarksToWorkingDays } from './attendant-dates.util';
+
+const flattenAttendanceMarks = (attendance: Record<string, string>): string[] => {
+  const weekKeys = ['week_1', 'week_2', 'week_3', 'week_4', 'week_5'] as const;
+  return weekKeys.flatMap((weekKey) => {
+    const marks = String(attendance[weekKey] || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 5);
+
+    while (marks.length < 5) {
+      marks.push('X');
+    }
+
+    return marks;
+  });
+};
 
 export const createAttendanceFromParsedRows = async (payload: {
   schoolId: string;
@@ -66,4 +83,29 @@ export const createAttendanceFromParsedRows = async (payload: {
   }
 
   return created;
+};
+
+export const createAttendanceFromExtractionPayload = async (payload: {
+  schoolId: string;
+  termId: string;
+  academicSessionId: string;
+  startDate: Date;
+  endDate: Date;
+  students: Array<{
+    admission_number: string;
+    student_name: string;
+    attendance: Record<string, string>;
+  }>;
+}) => {
+  return createAttendanceFromParsedRows({
+    schoolId: payload.schoolId,
+    termId: payload.termId,
+    academicSessionId: payload.academicSessionId,
+    workingDays: getWorkingDays(payload.startDate, payload.endDate),
+    rows: payload.students.map((student) => ({
+      admissionNumber: student.admission_number,
+      studentName: student.student_name,
+      statusMarks: flattenAttendanceMarks(student.attendance),
+    })),
+  });
 };

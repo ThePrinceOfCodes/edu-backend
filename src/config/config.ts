@@ -39,6 +39,16 @@ const envVarsSchema = Joi.object()
     GOOGLE_CLOUD_LOCATION: Joi.string().valid('us', 'eu').optional(),
     GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID: Joi.string().optional(),
     DOCUMENT_AI_PROCESSOR_ID: Joi.string().optional(),
+    GCP_SA_TYPE: Joi.string().default('service_account'),
+    GCP_SA_PROJECT_ID: Joi.string().optional(),
+    GCP_SA_PRIVATE_KEY_ID: Joi.string().allow('').optional(),
+    GCP_SA_PRIVATE_KEY: Joi.string().allow('').optional(),
+    GCP_SA_CLIENT_EMAIL: Joi.string().allow('').optional(),
+    GCP_SA_CLIENT_ID: Joi.string().allow('').optional(),
+    GCP_SA_TOKEN_URI: Joi.string().default('https://oauth2.googleapis.com/token'),
+    GCP_SA_AUTH_PROVIDER_CERT_URL: Joi.string().default('https://www.googleapis.com/oauth2/v1/certs'),
+    GCP_SA_CLIENT_CERT_URL: Joi.string().allow('').optional(),
+    GCP_SA_UNIVERSE_DOMAIN: Joi.string().default('googleapis.com'),
     OPENAI_API_KEY: Joi.string().allow('').optional(),
     GEMINI_API_KEY: Joi.string().allow('').optional(),
     ANTHROPIC_API_KEY: Joi.string().allow('').optional(),
@@ -48,6 +58,10 @@ const envVarsSchema = Joi.object()
     ATTENDANT_EXTRACTION_PROVIDER: Joi.string().valid('google', 'openai', 'anthropic').optional(),
     ATTENDANT_EXTRACTION_MODEL: Joi.string().trim().optional(),
     ATTENDANT_EXTRACTION_MAX_UPLOAD_MB: Joi.number().integer().min(1).default(10),
+    PI_OAUTH_PROVIDER: Joi.string().trim().optional().description('Pi OAuth provider key, e.g. openai-codex'),
+    PI_OAUTH_ACCESS_TOKEN: Joi.string().allow('').optional(),
+    PI_OAUTH_REFRESH_TOKEN: Joi.string().allow('').optional(),
+    PI_OAUTH_EXPIRES_AT: Joi.number().optional(),
   })
   .unknown()
 
@@ -115,6 +129,20 @@ const config = {
     location: envVars.GOOGLE_CLOUD_LOCATION,
     processorId: envVars.DOCUMENT_AI_PROCESSOR_ID || envVars.GOOGLE_CLOUD_DOCUMENT_AI_PROCESSOR_ID,
   },
+  googleServiceAccount: {
+    type: envVars.GCP_SA_TYPE,
+    projectId: envVars.GCP_SA_PROJECT_ID,
+    privateKeyId: envVars.GCP_SA_PRIVATE_KEY_ID,
+    privateKey: envVars.GCP_SA_PRIVATE_KEY
+      ? envVars.GCP_SA_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : undefined,
+    clientEmail: envVars.GCP_SA_CLIENT_EMAIL,
+    clientId: envVars.GCP_SA_CLIENT_ID,
+    tokenUri: envVars.GCP_SA_TOKEN_URI,
+    authProviderCertUrl: envVars.GCP_SA_AUTH_PROVIDER_CERT_URL,
+    clientCertUrl: envVars.GCP_SA_CLIENT_CERT_URL,
+    universeDomain: envVars.GCP_SA_UNIVERSE_DOMAIN,
+  },
   pushNotifications: {
     enabled: envVars.PUSH_NOTIFICATIONS_ENABLED,
     projectId: envVars.GOOGLE_CLOUD_PROJECT_ID,
@@ -130,6 +158,14 @@ const config = {
       google: envVars.GEMINI_API_KEY,
       anthropic: envVars.ANTHROPIC_API_KEY,
     },
+  },
+
+  piOAuth: {
+    provider: envVars.PI_OAUTH_PROVIDER as string | undefined,
+    accessToken: envVars.PI_OAUTH_ACCESS_TOKEN as string | undefined,
+    refreshToken: envVars.PI_OAUTH_REFRESH_TOKEN as string | undefined,
+    expiresAt: envVars.PI_OAUTH_EXPIRES_AT as number | undefined,
+    clientId: envVars.PI_OAUTH_CLIENT_ID as string | undefined,    
   },
 }
 
