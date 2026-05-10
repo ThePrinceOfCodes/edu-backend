@@ -4,6 +4,7 @@ import Attendance from '../attendance/attendance.model';
 import { Student } from '../student';
 import { Term } from '../term';
 import { School } from '../school';
+import { findStudentIdsForPlacement } from '../student/studentEnrollment.helpers';
 import { normaliseStatusMark } from './attendant-parser.service';
 import { getWorkingDays, zipMarksToWorkingDays } from './attendant-dates.util';
 
@@ -38,20 +39,35 @@ export const createAttendanceFromParsedRows = async (payload: {
   const term = await Term.findById(payload.termId);
   if (!term) throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
 
+  const allowedStudentIds = new Set(
+    await findStudentIdsForPlacement({
+      schoolId: payload.schoolId,
+      academicSession: term.academicSession,
+    })
+  );
+
   const created: any[] = [];
 
   for (const row of payload.rows) {
     // Resolve the student record by admission number first, then name
-    const student = row.admissionNumber
-      ? await Student.findOne({ school: payload.schoolId, regNumber: row.admissionNumber })
+    const matchedByRegNumber = row.admissionNumber
+      ? await Student.findOne({ regNumber: row.admissionNumber })
+      : null;
+
+    const matchedByName = !matchedByRegNumber && row.studentName
+      ? await Student.findOne({
+          _id: { $in: Array.from(allowedStudentIds) },
+          $or: [
+            { firstName: new RegExp(row.studentName, 'i') },
+            { lastName: new RegExp(row.studentName, 'i') },
+          ],
+        })
+      : null;
+
+    const student = matchedByRegNumber && allowedStudentIds.has(matchedByRegNumber.id)
+      ? matchedByRegNumber
       : row.studentName
-        ? await Student.findOne({
-            school: payload.schoolId,
-            $or: [
-              { firstName: new RegExp(row.studentName, 'i') },
-              { lastName: new RegExp(row.studentName, 'i') },
-            ],
-          })
+        ? matchedByName
         : null;
 
     if (!student) continue;
@@ -67,10 +83,8 @@ export const createAttendanceFromParsedRows = async (payload: {
         { student: student.id, date },
         {
           student: student.id,
-          schoolBoard: school.schoolBoard,
-          school: school.id,
-          academicSessionId: payload.academicSessionId,
-          termId: term.id,
+          regNumber: student.regNumber,
+          schoolId: school.id,
           date,
           status: resolvedStatus,
           source: 'attendant-extraction',

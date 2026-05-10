@@ -6,6 +6,12 @@ import { School } from '../school';
 import { ClassModel } from '../class';
 import { Student } from '../student';
 import { termService, Term } from '../term';
+import {
+  findStudentIdsForPlacement,
+  getAcademicSessionEnrollmentMap,
+  getCurrentEnrollmentMap,
+  getEffectivePlacement,
+} from '../student/studentEnrollment.helpers';
 import Attendance from './attendance.model';
 import { buildExtractionImageUrl } from '../attendant-extraction/attendant-extraction.service';
 import AttendantExtraction from '../attendant-extraction/attendant-extraction.model';
@@ -31,6 +37,10 @@ type CalendarSummaryContext = {
 };
 
 
+
+const buildAttendanceSchoolFilter = (schoolId: string) => ({
+  $or: [{ schoolId }, { school: schoolId }],
+});
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -115,14 +125,18 @@ const resolveSchoolContext = async (actor: IUserDoc, schoolId?: string) => {
   return school;
 };
 
-const resolveClassContext = async (schoolId: string, classId: string) => {
+const resolveClassContext = async (schoolId: string, classId: string, academicSession?: string | null) => {
   const classDoc = await ClassModel.findById(classId);
   if (!classDoc) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Class not found');
   }
 
-  const matchingStudent = await Student.findOne({ school: schoolId, classId });
-  if (!matchingStudent) {
+  const matchingStudentIds = await findStudentIdsForPlacement({
+    schoolId,
+    classId,
+    ...(academicSession !== undefined ? { academicSession } : {}),
+  });
+  if (matchingStudentIds.length === 0) {
     // class exists but no student in that school/class scope
     // keep the endpoint strict so mobile doesn't silently show wrong data
     throw new ApiError(httpStatus.FORBIDDEN, 'Class is outside the requested school scope');
@@ -187,25 +201,27 @@ export const queryAttendance = async (
 ) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
   const term = await resolveTermForAttendance(school.id, context.termId);
-  const studentFilter: { school: string; classId?: string } = { school: school.id };
-
   if (context.classId) {
     const allowedClassIds = school.classes || [];
     if (!allowedClassIds.includes(context.classId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Selected class does not belong to this school');
     }
-
-    studentFilter.classId = context.classId;
   }
 
-  const students = await Student.find(studentFilter).select('_id');
-  const studentIds = students.map((student) => student.id);
+  const studentIds = await findStudentIdsForPlacement({
+    schoolId: school.id,
+    academicSession: term.academicSession,
+    ...(context.classId ? { classId: context.classId } : {}),
+  });
+
+  if (studentIds.length === 0) {
+    return Attendance.paginate({ _id: { $in: [] } }, options);
+  }
 
   return Attendance.paginate(
     {
       ...filter,
-      school: school.id,
-      termId: term.id,
+      ...buildAttendanceSchoolFilter(school.id),
       student: { $in: studentIds },
       date: {
         $gte: term.startDate,
@@ -219,25 +235,41 @@ export const queryAttendance = async (
 export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceContextOptions) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
   const term = await resolveTermForAttendance(school.id, context.termId);
-  const studentFilter: { school: string; classId?: string } = { school: school.id };
 
   if (context.classId) {
     const allowedClassIds = school.classes || [];
     if (!allowedClassIds.includes(context.classId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, 'Selected class does not belong to this school');
     }
-
-    studentFilter.classId = context.classId;
   }
 
-  const students = await Student.find(studentFilter).sort({ lastName: 1, firstName: 1 });
-  const classIds = Array.from(new Set(students.map((student) => student.classId).filter(Boolean)));
+  const studentIds = await findStudentIdsForPlacement({
+    schoolId: school.id,
+    academicSession: term.academicSession,
+    ...(context.classId ? { classId: context.classId } : {}),
+  });
+  const students = await Student.find({ _id: { $in: studentIds } }).sort({ lastName: 1, firstName: 1 });
+  const sessionPlacementMap = await getAcademicSessionEnrollmentMap(studentIds, term.academicSession);
+  const currentPlacementMap = await getCurrentEnrollmentMap(studentIds);
+  const placementMap = new Map(
+    students.map((student) => [
+      student.id,
+      getEffectivePlacement(student as any, sessionPlacementMap.get(student.id), currentPlacementMap.get(student.id)),
+    ])
+  );
+
+  const classIds = Array.from(
+    new Set(
+      students
+        .map((student) => placementMap.get(student.id)?.classId)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
   const classes = classIds.length > 0 ? await ClassModel.find({ _id: { $in: classIds } }) : [];
   const classById = new Map(classes.map((classItem) => [classItem.id, classItem]));
 
   const records = await Attendance.find({
-    school: school.id,
-    termId: term.id,
+    ...buildAttendanceSchoolFilter(school.id),
     student: { $in: students.map((student) => student.id) },
     date: {
       $gte: term.startDate,
@@ -261,7 +293,8 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
 
   const rows = students.map((student) => {
     const statusMap = byStudentDate.get(student.id) || new Map<string, string>();
-    const studentClass = classById.get(student.classId);
+    const placement = placementMap.get(student.id);
+    const studentClass = placement?.classId ? classById.get(placement.classId) : null;
 
     const statusByDate = dayKeys.reduce(
       (acc: Record<string, string>, dateKey) => {
@@ -285,7 +318,7 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
       studentName: `${student.firstName} ${student.lastName}`,
       regNumber: student.regNumber,
       gender: student.gender,
-      classId: student.classId,
+      classId: placement?.classId || null,
       classCode: studentClass?.code ?? null,
       className: studentClass?.name ?? null,
       attendancePercentage,
@@ -355,16 +388,12 @@ const buildDateRangeKeys = (startDate: Date, endDate: Date) => {
 
 export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: CalendarSummaryContext) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
-  await resolveClassContext(school.id, context.classId);
-
   const term = await Term.findById(context.termId);
   if (!term) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
   }
 
-  if (term.academicSession !== context.academicSessionId) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term does not belong to the requested academic session');
-  }
+  await resolveClassContext(school.id, context.classId, term.academicSession);
 
   if (term.school && term.school !== school.id) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term is scoped to a different school');
@@ -415,7 +444,12 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     endDate: { $gte: monthWindow.startDate },
   }).sort({ createdAt: 1 });
 
-  const classStudents = await Student.find({ school: school.id, classId: context.classId }).sort({ lastName: 1, firstName: 1 });
+  const classStudentIds = await findStudentIdsForPlacement({
+    schoolId: school.id,
+    classId: context.classId,
+    academicSession: term.academicSession,
+  });
+  const classStudents = await Student.find({ _id: { $in: classStudentIds } }).sort({ lastName: 1, firstName: 1 });
 
   const reviewMap = new Map<string, { resolvedStatus: string; resolvedStudentId?: string }>();
   const reviewIds = extractions.flatMap((item) => item.pendingReviewIds || []);
@@ -432,9 +466,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
   const byStudentDate = new Map<string, Map<string, string>>();
 
   const attendanceRecords = await Attendance.find({
-    school: school.id,
-    termId: term.id,
-    academicSessionId: context.academicSessionId,
+    ...buildAttendanceSchoolFilter(school.id),
     source: 'attendant-extraction',
     date: {
       $gte: monthWindow.startDate,

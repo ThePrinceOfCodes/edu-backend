@@ -4,18 +4,28 @@ import { ApiError } from '../errors';
 import { School } from '../school';
 import { ClassModel } from '../class';
 import Student from './student.model';
+import StudentEnrollment from './studentEnrollment.model';
 import { IStudent } from './student.interfaces';
+import {
+  getAcademicSessionEnrollmentMap,
+  getCurrentEnrollmentMap,
+  getEffectivePlacement,
+  upsertStudentEnrollment,
+} from './studentEnrollment.helpers';
 
-type CreateStudentPayload = Omit<IStudent, 'schoolBoard' | 'promotionHistory'>;
+type CreateStudentPayload = IStudent & {
+  school: string;
+  classId: string;
+};
 
 type PromoteStudentPayload = {
   school?: string;
   classId: string;
 };
 
-const buildStudentAccessFilter = (actor: IUserDoc) => {
+const assertStudentAccessRole = (actor: IUserDoc) => {
   if (actor.accountType === 'internal') {
-    return {};
+    return;
   }
 
   if (actor.role === 'school-board-admin') {
@@ -23,7 +33,7 @@ const buildStudentAccessFilter = (actor: IUserDoc) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'School board context is missing for this user');
     }
 
-    return { schoolBoard: actor.schoolBoardId };
+    return;
   }
 
   if (actor.role === 'school-admin') {
@@ -31,7 +41,7 @@ const buildStudentAccessFilter = (actor: IUserDoc) => {
       throw new ApiError(httpStatus.FORBIDDEN, 'School context is missing for this user');
     }
 
-    return { school: actor.schoolId };
+    return;
   }
 
   throw new ApiError(httpStatus.FORBIDDEN, 'Only school board admin or school admin can access students');
@@ -68,6 +78,107 @@ const validateSchoolAndClass = async (schoolId: string, classId: string, actor: 
   return { school, classItem };
 };
 
+const sortStudents = (students: any[], sortBy?: string) => {
+  if (!sortBy) {
+    return [...students].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  const [sortField, sortOrder] = sortBy.split(':');
+  const direction = sortOrder === 'desc' ? -1 : 1;
+
+  return [...students].sort((left, right) => {
+    const leftValue = left[sortField];
+    const rightValue = right[sortField];
+
+    if (leftValue === rightValue) {
+      return 0;
+    }
+
+    if (leftValue === undefined || leftValue === null) {
+      return 1;
+    }
+
+    if (rightValue === undefined || rightValue === null) {
+      return -1;
+    }
+
+    return leftValue > rightValue ? direction : -direction;
+  });
+};
+
+const paginateStudents = (students: any[], options: any) => {
+  const limit = options.limit && parseInt(options.limit.toString(), 10) > 0 ? parseInt(options.limit.toString(), 10) : 10;
+  const page = options.page && parseInt(options.page.toString(), 10) > 0 ? parseInt(options.page.toString(), 10) : 1;
+  const sorted = sortStudents(students, options.sortBy);
+  const totalResults = sorted.length;
+  const totalPages = Math.ceil(totalResults / limit) || 1;
+  const start = (page - 1) * limit;
+
+  return {
+    results: sorted.slice(start, start + limit),
+    page,
+    limit,
+    totalPages,
+    totalResults,
+  };
+};
+
+const serializeStudent = (student: any, placement: any | null) => {
+  const json = typeof student.toJSON === 'function' ? student.toJSON() : student;
+
+  return {
+    ...json,
+    ...(placement
+      ? {
+          schoolBoard: placement.schoolBoard || null,
+          school: placement.school,
+          classId: placement.classId,
+          currentEnrollment: {
+            schoolBoard: placement.schoolBoard || null,
+            school: placement.school,
+            classId: placement.classId,
+            academicSession: placement.academicSession || null,
+            academicSessionId: placement.academicSessionId || null,
+            isCurrent: placement.isCurrent !== false,
+          },
+        }
+      : { currentEnrollment: null }),
+  };
+};
+
+const getStudentWithPlacement = async (studentId: string) => {
+  const student = await Student.findById(studentId);
+  if (!student) {
+    return { student: null, placement: null };
+  }
+
+  const currentMap = await getCurrentEnrollmentMap([student.id]);
+  return {
+    student,
+    placement: getEffectivePlacement(student as any, null, currentMap.get(student.id)),
+  };
+};
+
+const canActorAccessPlacement = (actor: IUserDoc, placement: any | null) => {
+  if (actor.accountType === 'internal') {
+    return true;
+  }
+
+  if (!placement) {
+    return false;
+  }
+
+  if (actor.role === 'school-board-admin') {
+    return placement.schoolBoard === actor.schoolBoardId;
+  }
+
+  if (actor.role === 'school-admin') {
+    return placement.school === actor.schoolId;
+  }
+
+  return false;
+};
+
 const createStudentInternal = async (studentBody: CreateStudentPayload, actor: IUserDoc) => {
   const { school, classItem } = await validateSchoolAndClass(studentBody.school, studentBody.classId, actor);
 
@@ -78,7 +189,7 @@ const createStudentInternal = async (studentBody: CreateStudentPayload, actor: I
     throw new ApiError(httpStatus.BAD_REQUEST, `Student regNumber already exists: ${regNumber}`);
   }
 
-  return Student.create({
+  const student = await Student.create({
     firstName: studentBody.firstName,
     middleName: studentBody.middleName || null,
     lastName: studentBody.lastName,
@@ -87,21 +198,17 @@ const createStudentInternal = async (studentBody: CreateStudentPayload, actor: I
     localGovernment: studentBody.localGovernment,
     gender: studentBody.gender,
     dateOfBirth: studentBody.dateOfBirth,
-    schoolBoard: school.schoolBoard || null,
-    school: school.id,
-    classId: classItem.id,
     status: studentBody.status || 'active',
-    promotionHistory: [
-      {
-        fromSchool: null,
-        toSchool: school.id,
-        fromClassId: null,
-        toClassId: classItem.id,
-        action: 'created',
-        changedAt: new Date(),
-      },
-    ],
   });
+
+  const enrollment = await upsertStudentEnrollment({
+    studentId: student.id,
+    schoolBoardId: school.schoolBoard || null,
+    schoolId: school.id,
+    classId: classItem.id,
+  });
+
+  return serializeStudent(student, enrollment);
 };
 
 export const createStudent = async (studentBody: CreateStudentPayload, actor: IUserDoc) => {
@@ -136,73 +243,110 @@ export const createStudentsBulk = async (students: CreateStudentPayload[], actor
 };
 
 export const queryStudents = async (filter: any, options: any, actor: IUserDoc) => {
-  const accessFilter = buildStudentAccessFilter(actor);
-  return Student.paginate({ ...filter, ...accessFilter }, options);
+  assertStudentAccessRole(actor);
+
+  const { school, classId, ...studentFilter } = filter;
+  const students = await Student.find(studentFilter);
+  const studentIds = students.map((student) => student.id);
+  const currentMap = await getCurrentEnrollmentMap(studentIds);
+
+  const serialized = students
+    .map((student) => {
+      const placement = getEffectivePlacement(student as any, null, currentMap.get(student.id));
+      return {
+        student,
+        placement,
+      };
+    })
+    .filter(({ placement }) => canActorAccessPlacement(actor, placement))
+    .filter(({ placement }) => {
+      if (school && placement?.school !== school) {
+        return false;
+      }
+
+      if (classId && placement?.classId !== classId) {
+        return false;
+      }
+
+      return true;
+    })
+    .map(({ student, placement }) => serializeStudent(student, placement));
+
+  return paginateStudents(serialized, options);
 };
 
 export const getStudentById = async (studentId: string, actor: IUserDoc) => {
-  const accessFilter = buildStudentAccessFilter(actor);
-  const student = await Student.findOne({ _id: studentId, ...accessFilter });
+  assertStudentAccessRole(actor);
+  const { student, placement } = await getStudentWithPlacement(studentId);
 
-  if (!student) {
+  if (!student || !canActorAccessPlacement(actor, placement)) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Student not found');
   }
 
-  return student;
+  return serializeStudent(student, placement);
 };
 
 export const updateStudentById = async (studentId: string, updateBody: Partial<IStudent>, actor: IUserDoc) => {
-  const student = await getStudentById(studentId, actor);
+  assertStudentAccessRole(actor);
+  const { student, placement } = await getStudentWithPlacement(studentId);
 
-  if (updateBody.regNumber) {
+  if (!student || !canActorAccessPlacement(actor, placement)) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Student not found');
+  }
+
+  if ((updateBody as any).regNumber) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'regNumber cannot be updated');
   }
 
-  if (updateBody.school || updateBody.classId) {
+  if ((updateBody as any).school || (updateBody as any).classId) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Use promote endpoint to change school or class');
   }
 
   Object.assign(student, updateBody);
   await student.save();
 
-  return student;
+  return serializeStudent(student, placement);
 };
 
 export const promoteStudentById = async (studentId: string, payload: PromoteStudentPayload, actor: IUserDoc) => {
-  const student = await getStudentById(studentId, actor);
-  const nextSchoolId = payload.school || student.school;
+  assertStudentAccessRole(actor);
+  const { student, placement } = await getStudentWithPlacement(studentId);
+
+  if (!student || !canActorAccessPlacement(actor, placement)) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Student not found');
+  }
+
+  const nextSchoolId = payload.school || placement?.school;
+
+  if (!nextSchoolId) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'school is required to place this student');
+  }
 
   const { school, classItem } = await validateSchoolAndClass(nextSchoolId, payload.classId, actor);
 
-  if (student.school === school.id && student.classId === classItem.id) {
+  if (placement?.school === school.id && placement?.classId === classItem.id) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Student is already in the selected class and school');
   }
 
-  const action = student.school === school.id ? 'promoted' : 'transferred';
+  const enrollment = await upsertStudentEnrollment({
+    studentId: student.id,
+    schoolBoardId: school.schoolBoard || null,
+    schoolId: school.id,
+    classId: classItem.id,
+  });
 
-  student.promotionHistory = [
-    ...(student.promotionHistory || []),
-    {
-      fromSchool: student.school,
-      toSchool: school.id,
-      fromClassId: student.classId,
-      toClassId: classItem.id,
-      action,
-      changedAt: new Date(),
-    },
-  ];
-
-  student.school = school.id;
-  student.schoolBoard = school.schoolBoard || null;
-  student.classId = classItem.id;
-
-  await student.save();
-
-  return student;
+  return serializeStudent(student, enrollment);
 };
 
 export const deleteStudentById = async (studentId: string, actor: IUserDoc) => {
-  const student = await getStudentById(studentId, actor);
+  assertStudentAccessRole(actor);
+  const { student, placement } = await getStudentWithPlacement(studentId);
+
+  if (!student || !canActorAccessPlacement(actor, placement)) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Student not found');
+  }
+
+  await StudentEnrollment.deleteMany({ student: student.id });
   await student.deleteOne();
-  return student;
+  return serializeStudent(student, placement);
 };

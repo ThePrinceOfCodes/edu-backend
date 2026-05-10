@@ -15,24 +15,15 @@ const attendanceSchema = new mongoose.Schema<IAttendanceDoc, IAttendanceModel>(
       ref: 'Student',
       required: true,
     },
-    schoolBoard: {
+    regNumber: {
       type: String,
-      ref: 'SchoolBoard',
       required: true,
+      trim: true,
+      uppercase: true,
     },
-    school: {
+    schoolId: {
       type: String,
       ref: 'School',
-      required: true,
-    },
-    academicSessionId: {
-      type: String,
-      ref: 'AcademicSession',
-      required: true,
-    },
-    termId: {
-      type: String,
-      ref: 'Term',
       required: true,
     },
     date: {
@@ -55,7 +46,7 @@ const attendanceSchema = new mongoose.Schema<IAttendanceDoc, IAttendanceModel>(
   }
 );
 
-attendanceSchema.index({ school: 1, termId: 1, date: 1 });
+attendanceSchema.index({ schoolId: 1, date: 1 });
 attendanceSchema.index({ student: 1, date: 1 }, { unique: true });
 attendanceSchema.plugin(toJSON);
 attendanceSchema.plugin(paginate);
