@@ -1,6 +1,6 @@
 export const INTERNAL_USER_ROLES = ['super-admin', 'admin'] as const;
 
-export const SCHOOL_USER_ROLES = ['school-board-admin', 'school-admin', 'teacher', 'staff'] as const;
+export const SCHOOL_USER_ROLES = ['school-board-admin', 'school-admin', 'teacher', 'staff', 'guardian'] as const;
 
 export const USER_ROLES = [...INTERNAL_USER_ROLES, ...SCHOOL_USER_ROLES] as const;
 
@@ -31,6 +31,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'students.read',
     'students.write',
     'attendance.read',
+    'results.read',
+    'results.write',
+    'guardians.read',
+    'guardians.write',
     'messages.read',
     'messages.write',
     'messages.broadcast',
@@ -54,6 +58,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'students.read',
     'students.write',
     'attendance.read',
+    'results.read',
+    'results.write',
+    'guardians.read',
+    'guardians.write',
     'messages.read',
     'messages.write',
     'messages.broadcast',
@@ -76,6 +84,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'students.read',
     'students.write',
     'attendance.read',
+    'results.read',
+    'results.write',
+    'guardians.read',
+    'guardians.write',
     'messages.read',
     'messages.write',
     'events.read',
@@ -84,8 +96,29 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'terms.write',
     'academicSessions.read',
   ],
-  teacher: ['staff.read', 'classes.read', 'students.read', 'attendance.read', 'messages.read', 'messages.write', 'events.read'],
-  staff: ['staff.read', 'classes.read', 'students.read', 'attendance.read', 'messages.read', 'messages.write', 'events.read'],
+  teacher: [
+    'staff.read',
+    'classes.read',
+    'students.read',
+    'attendance.read',
+    'results.read',
+    'results.write',
+    'messages.read',
+    'messages.write',
+    'events.read',
+  ],
+  staff: [
+    'staff.read',
+    'classes.read',
+    'students.read',
+    'attendance.read',
+    'results.read',
+    'results.write',
+    'messages.read',
+    'messages.write',
+    'events.read',
+  ],
+  guardian: ['students.read', 'attendance.read', 'results.read', 'guardians.read'],
 };
 
 export const getPermissionsForRole = (role?: UserRole | null) => {

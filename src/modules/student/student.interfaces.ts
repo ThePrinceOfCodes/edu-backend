@@ -1,14 +1,5 @@
 import { Document, Model } from 'mongoose';
 
-export interface IStudentHistory {
-  fromSchool?: string | null;
-  toSchool?: string | null;
-  fromClassId?: string | null;
-  toClassId: string;
-  action: 'created' | 'promoted' | 'transferred';
-  changedAt: Date;
-}
-
 export interface IStudent {
   firstName: string;
   middleName?: string | null;
@@ -18,11 +9,8 @@ export interface IStudent {
   localGovernment: string;
   gender: 'male' | 'female';
   dateOfBirth: Date;
-  schoolBoard?: string | null;
-  school: string;
-  classId: string;
+  guardianIds?: string[];
   status?: 'active' | 'inactive';
-  promotionHistory?: IStudentHistory[];
 }
 
 export interface IStudentDoc extends IStudent, Document {}

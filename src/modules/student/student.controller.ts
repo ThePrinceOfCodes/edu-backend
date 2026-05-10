@@ -17,6 +17,7 @@ export const createStudentsBulk = catchAsync(async (req: Request, res: Response)
 
 export const getStudents = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, [
+    'q',
     'firstName',
     'lastName',
     'regNumber',
@@ -25,6 +26,8 @@ export const getStudents = catchAsync(async (req: Request, res: Response) => {
     'gender',
     'school',
     'classId',
+    'academicSession',
+    'academicSessionId',
     'status',
   ]);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);

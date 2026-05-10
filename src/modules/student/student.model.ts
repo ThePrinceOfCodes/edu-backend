@@ -4,41 +4,6 @@ import { toJSON } from '../toJSON';
 import { paginate } from '../paginate';
 import { IStudentDoc, IStudentModel } from './student.interfaces';
 
-const studentHistorySchema = new mongoose.Schema(
-  {
-    fromSchool: {
-      type: String,
-      ref: 'School',
-      default: null,
-    },
-    toSchool: {
-      type: String,
-      ref: 'School',
-      default: null,
-    },
-    fromClassId: {
-      type: String,
-      ref: 'Class',
-      default: null,
-    },
-    toClassId: {
-      type: String,
-      ref: 'Class',
-      required: true,
-    },
-    action: {
-      type: String,
-      enum: ['created', 'promoted', 'transferred'],
-      required: true,
-    },
-    changedAt: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-  { _id: false }
-);
-
 const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
   {
     _id: {
@@ -86,29 +51,15 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
       type: Date,
       required: true,
     },
-    schoolBoard: {
-      type: String,
-      ref: 'SchoolBoard',
-      default: null,
-    },
-    school: {
-      type: String,
-      ref: 'School',
-      required: true,
-    },
-    classId: {
-      type: String,
-      ref: 'Class',
-      required: true,
+    guardianIds: {
+      type: [String],
+      ref: 'User',
+      default: [],
     },
     status: {
       type: String,
       enum: ['active', 'inactive'],
       default: 'active',
-    },
-    promotionHistory: {
-      type: [studentHistorySchema],
-      default: [],
     },
   },
   {
@@ -118,6 +69,7 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
 
 studentSchema.plugin(toJSON);
 studentSchema.plugin(paginate);
+studentSchema.index({ guardianIds: 1 });
 
 const Student = mongoose.model<IStudentDoc, IStudentModel>('Student', studentSchema);
 
