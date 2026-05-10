@@ -17,6 +17,7 @@ export const createStudentsBulk = catchAsync(async (req: Request, res: Response)
 
 export const getStudents = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, [
+    'q',
     'firstName',
     'lastName',
     'regNumber',

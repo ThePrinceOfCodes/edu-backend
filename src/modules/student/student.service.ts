@@ -158,6 +158,8 @@ const paginateStudents = (students: any[], options: any) => {
   };
 };
 
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const serializeStudent = (student: any, placement: any | null) => {
   const json = typeof student.toJSON === 'function' ? student.toJSON() : student;
 
@@ -296,7 +298,20 @@ export const createStudentsBulk = async (students: CreateStudentPayload[], actor
 export const queryStudents = async (filter: any, options: any, actor: IUserDoc) => {
   assertStudentReadAccessRole(actor);
 
-  const { school, classId, academicSession, academicSessionId, ...studentFilter } = filter;
+  const { q, school, classId, academicSession, academicSessionId, ...studentFilter } = filter;
+
+  if (q && typeof q === 'string' && q.trim()) {
+    const safe = escapeRegex(q.trim());
+    const searchRegex = new RegExp(safe, 'i');
+    studentFilter['$or'] = [
+      { firstName: searchRegex },
+      { middleName: searchRegex },
+      { lastName: searchRegex },
+      { regNumber: searchRegex },
+      { stateOfOrigin: searchRegex },
+      { localGovernment: searchRegex },
+    ];
+  }
 
   // Enforce strict school scope for school-admin
   if (actor.accountType !== 'internal' && actor.role === 'school-admin' && school && school !== actor.schoolId) {

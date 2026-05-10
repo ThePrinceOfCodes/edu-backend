@@ -43,6 +43,7 @@ export const createStudentsBulk = {
 
 export const getStudents = {
   query: Joi.object().keys({
+    q: Joi.string().trim(),
     firstName: Joi.string(),
     lastName: Joi.string(),
     regNumber: Joi.string(),
