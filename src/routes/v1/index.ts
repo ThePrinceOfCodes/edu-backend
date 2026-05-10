@@ -5,11 +5,13 @@ import schoolBoardRoute from './schoolBoard.route';
 import schoolRoute from './school.route';
 import staffRoute from './staff.route';
 import schoolTypeRoute from './schoolType.route';
+import subjectRoute from './subject.route';
 import classRoute from './class.route';
 import studentRoute from './student.route';
 import academicSessionRoute from './academicSession.route';
 import termRoute from './term.route';
 import attendanceRoute from './attendance.route';
+import resultRoute from './result.route';
 import attendantExtractionRoute from './attendant-extraction.route';
 import attendantReviewRoute from './attendant-review.route';
 import messagingRoute from './messaging.route';
@@ -48,6 +50,10 @@ const generalRoutes: IRoute[] = [
     route: schoolTypeRoute,
   },
   {
+    path: '/subjects',
+    route: subjectRoute,
+  },
+  {
     path: '/classes',
     route: classRoute,
   },
@@ -66,6 +72,10 @@ const generalRoutes: IRoute[] = [
   {
     path: '/attendance',
     route: attendanceRoute,
+  },
+  {
+    path: '/results',
+    route: resultRoute,
   },
   {
     path: '/attendant-extractions',

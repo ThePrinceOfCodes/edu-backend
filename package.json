@@ -39,6 +39,7 @@
     "watch-email-templates": "nodemon --watch ./src/modules/email/templates --ext 'hbs' --exec 'npm run templates'",
     "seed:internal-admin": "tsx src/scripts/seedInternalAdmin.ts",
     "seed:school-types": "tsx src/scripts/seedSchoolTypes.ts",
+    "seed:subjects": "tsx src/scripts/seedSubjects.ts",
     "seed:classes": "tsx src/scripts/seedClasses.ts",
     "seed:terms": "tsx src/scripts/seedTerms.ts",
     "seed:sample-school-data": "tsx src/scripts/seedSampleSchoolData.ts",
