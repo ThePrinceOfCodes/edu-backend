@@ -163,7 +163,11 @@ const getStudentWithPlacement = async (studentId: string) => {
   };
 };
 
-const canActorAccessPlacement = (actor: IUserDoc, placement: any | null) => {
+const canActorAccessPlacement = (
+  actor: IUserDoc,
+  placement: any | null,
+  schoolBoardSchoolIds?: Set<string>
+) => {
   if (actor.accountType === 'internal') {
     return true;
   }
@@ -173,7 +177,12 @@ const canActorAccessPlacement = (actor: IUserDoc, placement: any | null) => {
   }
 
   if (actor.role === 'school-board-admin') {
-    return placement.schoolBoard === actor.schoolBoardId;
+    if (placement.schoolBoard === actor.schoolBoardId) {
+      return true;
+    }
+
+    // Backward-compatible fallback for enrollment rows without schoolBoard.
+    return Boolean(schoolBoardSchoolIds && schoolBoardSchoolIds.has(placement.school));
   }
 
   if (actor.role === 'school-admin') {
@@ -250,10 +259,22 @@ export const queryStudents = async (filter: any, options: any, actor: IUserDoc) 
   assertStudentAccessRole(actor);
 
   const { school, classId, academicSession, academicSessionId, ...studentFilter } = filter;
+
+  // Enforce strict school scope for school-admin
+  if (actor.accountType !== 'internal' && actor.role === 'school-admin' && school && school !== actor.schoolId) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Cannot access students from another school');
+  }
+
   const students = await Student.find(studentFilter);
   const studentIds = students.map((student) => student.id);
   const currentMap = await getCurrentEnrollmentMap(studentIds);
   const sessionMap = await getAcademicSessionEnrollmentMap(studentIds, academicSession, academicSessionId);
+
+  let schoolBoardSchoolIds: Set<string> | undefined;
+  if (actor.accountType !== 'internal' && actor.role === 'school-board-admin' && actor.schoolBoardId) {
+    const schools = await School.find({ schoolBoard: actor.schoolBoardId }).select('_id').lean();
+    schoolBoardSchoolIds = new Set(schools.map((item: any) => item._id));
+  }
 
   const serialized = students
     .map((student) => {
@@ -263,7 +284,7 @@ export const queryStudents = async (filter: any, options: any, actor: IUserDoc) 
         placement,
       };
     })
-    .filter(({ placement }) => canActorAccessPlacement(actor, placement))
+    .filter(({ placement }) => canActorAccessPlacement(actor, placement, schoolBoardSchoolIds))
     .filter(({ placement }) => {
       if (school && placement?.school !== school) {
         return false;

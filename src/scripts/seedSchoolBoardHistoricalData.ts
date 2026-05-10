@@ -95,7 +95,7 @@ const buildSessionWindows = () => {
   const currentYear = TODAY.getUTCFullYear();
   const windows: SessionWindow[] = [];
 
-  for (let startYear = 2023; startYear <= currentYear; startYear += 1) {
+  for (let startYear = 2010; startYear <= currentYear; startYear += 1) {
     const endYear = startYear + 1;
     const defaultStart = new Date(Date.UTC(startYear, 8, 1));
     const defaultEnd = new Date(Date.UTC(endYear, 7, 31, 23, 59, 59, 999));
