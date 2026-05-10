@@ -42,6 +42,7 @@
     "seed:classes": "tsx src/scripts/seedClasses.ts",
     "seed:terms": "tsx src/scripts/seedTerms.ts",
     "seed:sample-school-data": "tsx src/scripts/seedSampleSchoolData.ts",
+    "seed:school-board-history": "tsx src/scripts/seedSchoolBoardHistoricalData.ts",
     "seed:school-catalog": "npm run seed:school-types && npm run seed:classes",
     "migrate": "npx sequelize-cli db:migrate",
     "migrate:undo": "npx sequelize-cli db:migrate:undo",
