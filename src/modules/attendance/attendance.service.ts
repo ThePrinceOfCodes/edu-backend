@@ -8,7 +8,6 @@ import { Student } from '../student';
 import { termService, Term } from '../term';
 import {
   findStudentIdsForPlacement,
-  getAcademicSessionEnrollmentMap,
   getCurrentEnrollmentMap,
   getEffectivePlacement,
 } from '../student/studentEnrollment.helpers';
@@ -35,12 +34,6 @@ type CalendarSummaryContext = {
   year?: number;
   publicBaseUrl?: string;
 };
-
-
-
-const buildAttendanceSchoolFilter = (schoolId: string) => ({
-  $or: [{ schoolId }, { school: schoolId }],
-});
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -125,7 +118,7 @@ const resolveSchoolContext = async (actor: IUserDoc, schoolId?: string) => {
   return school;
 };
 
-const resolveClassContext = async (schoolId: string, classId: string, academicSession?: string | null) => {
+const resolveClassContext = async (schoolId: string, classId: string) => {
   const classDoc = await ClassModel.findById(classId);
   if (!classDoc) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Class not found');
@@ -134,7 +127,6 @@ const resolveClassContext = async (schoolId: string, classId: string, academicSe
   const matchingStudentIds = await findStudentIdsForPlacement({
     schoolId,
     classId,
-    ...(academicSession !== undefined ? { academicSession } : {}),
   });
   if (matchingStudentIds.length === 0) {
     // class exists but no student in that school/class scope
@@ -210,7 +202,6 @@ export const queryAttendance = async (
 
   const studentIds = await findStudentIdsForPlacement({
     schoolId: school.id,
-    academicSession: term.academicSession,
     ...(context.classId ? { classId: context.classId } : {}),
   });
 
@@ -221,7 +212,6 @@ export const queryAttendance = async (
   return Attendance.paginate(
     {
       ...filter,
-      ...buildAttendanceSchoolFilter(school.id),
       student: { $in: studentIds },
       date: {
         $gte: term.startDate,
@@ -245,16 +235,14 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
 
   const studentIds = await findStudentIdsForPlacement({
     schoolId: school.id,
-    academicSession: term.academicSession,
     ...(context.classId ? { classId: context.classId } : {}),
   });
   const students = await Student.find({ _id: { $in: studentIds } }).sort({ lastName: 1, firstName: 1 });
-  const sessionPlacementMap = await getAcademicSessionEnrollmentMap(studentIds, term.academicSession);
   const currentPlacementMap = await getCurrentEnrollmentMap(studentIds);
   const placementMap = new Map(
     students.map((student) => [
       student.id,
-      getEffectivePlacement(student as any, sessionPlacementMap.get(student.id), currentPlacementMap.get(student.id)),
+      getEffectivePlacement(student as any, null, currentPlacementMap.get(student.id)),
     ])
   );
 
@@ -269,7 +257,6 @@ export const getAttendanceSummary = async (actor: IUserDoc, context: AttendanceC
   const classById = new Map(classes.map((classItem) => [classItem.id, classItem]));
 
   const records = await Attendance.find({
-    ...buildAttendanceSchoolFilter(school.id),
     student: { $in: students.map((student) => student.id) },
     date: {
       $gte: term.startDate,
@@ -393,7 +380,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
   }
 
-  await resolveClassContext(school.id, context.classId, term.academicSession);
+  await resolveClassContext(school.id, context.classId);
 
   if (term.school && term.school !== school.id) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term is scoped to a different school');
@@ -447,7 +434,6 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
   const classStudentIds = await findStudentIdsForPlacement({
     schoolId: school.id,
     classId: context.classId,
-    academicSession: term.academicSession,
   });
   const classStudents = await Student.find({ _id: { $in: classStudentIds } }).sort({ lastName: 1, firstName: 1 });
 
@@ -466,7 +452,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
   const byStudentDate = new Map<string, Map<string, string>>();
 
   const attendanceRecords = await Attendance.find({
-    ...buildAttendanceSchoolFilter(school.id),
+    student: { $in: classStudentIds },
     source: 'attendant-extraction',
     date: {
       $gte: monthWindow.startDate,

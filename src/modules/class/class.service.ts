@@ -29,7 +29,7 @@ const resolveSchoolScope = async (actor: IUserDoc, schoolId?: string) => {
       }
 
       if (!effectiveSchoolId) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'schoolId is required for school-board-admin');
+        return null;
       }
 
       const school = await School.findById(effectiveSchoolId);

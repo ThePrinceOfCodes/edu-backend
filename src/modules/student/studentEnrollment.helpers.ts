@@ -168,17 +168,21 @@ export const findStudentIdsForPlacement = async (payload: {
     enrollmentFilter['isCurrent'] = true;
   }
 
-  const [enrollments, legacyStudents] = await Promise.all([
-    StudentEnrollment.find(enrollmentFilter).select('student'),
-    Student.find({
-      school: payload.schoolId,
-      ...(payload.classId ? { classId: payload.classId } : {}),
-    } as any).select('_id'),
-  ]);
+  const enrollments = await StudentEnrollment.find(enrollmentFilter).select('student');
 
   const studentIds = new Set<string>();
   enrollments.forEach((item) => studentIds.add(item.student));
-  legacyStudents.forEach((item) => studentIds.add(item.id));
+
+  // Legacy fallback: only use old student-level placement fields when no enrollment rows exist.
+  // This avoids mixing old and new placement sources, which can skew attendance summaries.
+  if (studentIds.size === 0) {
+    const legacyStudents = await Student.find({
+      school: payload.schoolId,
+      ...(payload.classId ? { classId: payload.classId } : {}),
+    } as any).select('_id');
+
+    legacyStudents.forEach((item) => studentIds.add(item.id));
+  }
 
   return Array.from(studentIds);
 };
