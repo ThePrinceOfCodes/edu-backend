@@ -25,6 +25,8 @@ export const getStudents = catchAsync(async (req: Request, res: Response) => {
     'gender',
     'school',
     'classId',
+    'academicSession',
+    'academicSessionId',
     'status',
   ]);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);

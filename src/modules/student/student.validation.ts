@@ -49,6 +49,8 @@ export const getStudents = {
     gender: Joi.string().valid('male', 'female'),
     school: Joi.string(),
     classId: Joi.string(),
+    academicSession: Joi.string(),
+    academicSessionId: Joi.string(),
     status: Joi.string().valid('active', 'inactive'),
     sortBy: Joi.string(),
     limit: Joi.number().integer(),

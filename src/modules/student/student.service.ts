@@ -249,14 +249,15 @@ export const createStudentsBulk = async (students: CreateStudentPayload[], actor
 export const queryStudents = async (filter: any, options: any, actor: IUserDoc) => {
   assertStudentAccessRole(actor);
 
-  const { school, classId, ...studentFilter } = filter;
+  const { school, classId, academicSession, academicSessionId, ...studentFilter } = filter;
   const students = await Student.find(studentFilter);
   const studentIds = students.map((student) => student.id);
   const currentMap = await getCurrentEnrollmentMap(studentIds);
+  const sessionMap = await getAcademicSessionEnrollmentMap(studentIds, academicSession, academicSessionId);
 
   const serialized = students
     .map((student) => {
-      const placement = getEffectivePlacement(student as any, null, currentMap.get(student.id));
+      const placement = getEffectivePlacement(student as any, sessionMap.get(student.id), currentMap.get(student.id));
       return {
         student,
         placement,

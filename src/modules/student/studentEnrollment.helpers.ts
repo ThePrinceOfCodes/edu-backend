@@ -41,15 +41,26 @@ export const getCurrentEnrollmentMap = async (studentIds: string[]) => {
   return new Map(enrollments.map((item) => [item.student, item]));
 };
 
-export const getAcademicSessionEnrollmentMap = async (studentIds: string[], academicSession?: string | null) => {
-  if (!academicSession || studentIds.length === 0) {
+export const getAcademicSessionEnrollmentMap = async (
+  studentIds: string[],
+  academicSession?: string | null,
+  academicSessionId?: string | null
+) => {
+  if ((!academicSession && !academicSessionId) || studentIds.length === 0) {
     return new Map<string, any>();
   }
 
-  const enrollments = await StudentEnrollment.find({
+  const enrollmentFilter: Record<string, any> = {
     student: { $in: studentIds },
-    academicSession,
-  });
+  };
+
+  if (academicSessionId) {
+    enrollmentFilter['academicSessionId'] = academicSessionId;
+  } else if (academicSession) {
+    enrollmentFilter['academicSession'] = academicSession;
+  }
+
+  const enrollments = await StudentEnrollment.find(enrollmentFilter);
 
   return new Map(enrollments.map((item) => [item.student, item]));
 };
