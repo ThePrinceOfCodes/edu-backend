@@ -7,6 +7,7 @@ import StudentEnrollment from '../student/studentEnrollment.model';
 import ClassModel from '../class/class.model';
 import Term from '../term/term.model';
 import AcademicSession from '../academic-session/academicSession.model';
+import Subject from '../subject/subject.model';
 import Result from './result.model';
 import { IResult } from './result.interfaces';
 
@@ -152,11 +153,29 @@ const ensureCanAccessResult = (actor: IUserDoc, resultDoc: any) => {
   throw new ApiError(httpStatus.FORBIDDEN, 'You are not allowed to access results');
 };
 
+const resolveSubjectName = async (subjectValue: string) => {
+  const normalized = subjectValue.trim();
+  if (!normalized) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Subject is required');
+  }
+
+  const normalizedUpper = normalized.toUpperCase();
+  const subjectDoc = await Subject.findOne({
+    $or: [{ name: normalized }, { code: normalizedUpper }],
+  });
+
+  if (!subjectDoc) {
+    throw new ApiError(httpStatus.BAD_REQUEST, `Subject not found: ${normalized}`);
+  }
+
+  return subjectDoc.name;
+};
+
 export const createResult = async (payload: CreateResultPayload, actor: IUserDoc) => {
   const school = await ensureActorCanWriteToSchool(actor, payload.school);
   await ensureResultPlacementValid(payload, school.schoolBoard);
 
-  const normalizedSubject = payload.subject.trim();
+  const normalizedSubject = await resolveSubjectName(payload.subject);
   const totalScore = payload.testScore + payload.examScore;
 
   return Result.create({
@@ -174,6 +193,32 @@ export const createResult = async (payload: CreateResultPayload, actor: IUserDoc
     assessmentDate: payload.assessmentDate || new Date(),
     recordedBy: actor.id,
   });
+};
+
+export const createResultsBulk = async (results: CreateResultPayload[], actor: IUserDoc) => {
+  const created: any[] = [];
+  const failed: Array<{ row: number; student?: string; reason: string }> = [];
+
+  for (const [index, payload] of results.entries()) {
+    try {
+      const resultDoc = await createResult(payload, actor);
+      created.push(resultDoc);
+    } catch (error) {
+      failed.push({
+        row: index + 1,
+        student: payload.student,
+        reason: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  return {
+    total: results.length,
+    createdCount: created.length,
+    failedCount: failed.length,
+    created,
+    failed,
+  };
 };
 
 export const queryResults = async (filter: any, options: any, actor: IUserDoc) => {

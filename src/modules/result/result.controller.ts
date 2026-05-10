@@ -10,6 +10,11 @@ export const createResult = catchAsync(async (req: Request, res: Response) => {
   res.status(httpStatus.CREATED).send(result);
 });
 
+export const createResultsBulk = catchAsync(async (req: Request, res: Response) => {
+  const result = await resultService.createResultsBulk(req.body.results, req.account);
+  res.status(httpStatus.CREATED).send(result);
+});
+
 export const getResults = catchAsync(async (req: Request, res: Response) => {
   const filter = pick(req.query, ['student', 'school', 'classId', 'termId', 'academicSessionId', 'subject']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);

@@ -15,6 +15,28 @@ export const createResult = {
   }),
 };
 
+export const createResultsBulk = {
+  body: Joi.object().keys({
+    results: Joi.array()
+      .items(
+        Joi.object().keys({
+          student: Joi.string().trim().required(),
+          school: Joi.string().trim().required(),
+          classId: Joi.string().trim().required(),
+          termId: Joi.string().trim().required(),
+          academicSessionId: Joi.string().trim().required(),
+          subject: Joi.string().trim().required(),
+          testScore: Joi.number().min(0).max(100).required(),
+          examScore: Joi.number().min(0).max(100).required(),
+          remark: Joi.string().trim().allow(null, '').optional(),
+          assessmentDate: Joi.date().optional(),
+        })
+      )
+      .min(1)
+      .required(),
+  }),
+};
+
 export const getResults = {
   query: Joi.object().keys({
     student: Joi.string().trim(),

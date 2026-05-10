@@ -11,6 +11,14 @@ router
   .post(authenticate, authorize('results.write'), validate(resultValidation.createResult), resultController.createResult)
   .get(authenticate, authorize('results.read'), validate(resultValidation.getResults), resultController.getResults);
 
+router.post(
+  '/bulk-import',
+  authenticate,
+  authorize('results.write'),
+  validate(resultValidation.createResultsBulk),
+  resultController.createResultsBulk
+);
+
 router
   .route('/:resultId')
   .get(authenticate, authorize('results.read'), validate(resultValidation.getResult), resultController.getResult)
