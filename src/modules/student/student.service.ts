@@ -80,7 +80,11 @@ const validateSchoolAndClass = async (schoolId: string, classId: string, actor: 
 
 const sortStudents = (students: any[], sortBy?: string) => {
   if (!sortBy) {
-    return [...students].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return [...students].sort((left, right) => {
+      const leftTime = left.createdAt instanceof Date ? left.createdAt.getTime() : new Date(left.createdAt).getTime();
+      const rightTime = right.createdAt instanceof Date ? right.createdAt.getTime() : new Date(right.createdAt).getTime();
+      return leftTime - rightTime;
+    });
   }
 
   const [sortField, sortOrder] = sortBy.split(':');
