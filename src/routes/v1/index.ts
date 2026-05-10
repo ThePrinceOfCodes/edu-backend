@@ -8,6 +8,7 @@ import schoolTypeRoute from './schoolType.route';
 import subjectRoute from './subject.route';
 import classRoute from './class.route';
 import studentRoute from './student.route';
+import guardianRoute from './guardian.route';
 import academicSessionRoute from './academicSession.route';
 import termRoute from './term.route';
 import attendanceRoute from './attendance.route';
@@ -60,6 +61,10 @@ const generalRoutes: IRoute[] = [
   {
     path: '/students',
     route: studentRoute,
+  },
+  {
+    path: '/guardians',
+    route: guardianRoute,
   },
   {
     path: '/academic-sessions',

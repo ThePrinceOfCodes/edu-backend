@@ -23,7 +23,35 @@ type PromoteStudentPayload = {
   classId: string;
 };
 
-const assertStudentAccessRole = (actor: IUserDoc) => {
+const assertStudentReadAccessRole = (actor: IUserDoc) => {
+  if (actor.accountType === 'internal') {
+    return;
+  }
+
+  if (actor.role === 'school-board-admin') {
+    if (!actor.schoolBoardId) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'School board context is missing for this user');
+    }
+
+    return;
+  }
+
+  if (actor.role === 'school-admin') {
+    if (!actor.schoolId) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'School context is missing for this user');
+    }
+
+    return;
+  }
+
+  if (actor.role === 'guardian') {
+    return;
+  }
+
+  throw new ApiError(httpStatus.FORBIDDEN, 'You are not allowed to access students');
+};
+
+const assertStudentWriteAccessRole = (actor: IUserDoc) => {
   if (actor.accountType === 'internal') {
     return;
   }
@@ -88,6 +116,9 @@ const sortStudents = (students: any[], sortBy?: string) => {
   }
 
   const [sortField, sortOrder] = sortBy.split(':');
+  if (!sortField) {
+    return students;
+  }
   const direction = sortOrder === 'desc' ? -1 : 1;
 
   return [...students].sort((left, right) => {
@@ -189,10 +220,16 @@ const canActorAccessPlacement = (
     return placement.school === actor.schoolId;
   }
 
+  if (actor.role === 'guardian') {
+    const guardianIds = Array.isArray((placement as any)?.guardianIds) ? (placement as any).guardianIds : [];
+    return guardianIds.includes(actor.id);
+  }
+
   return false;
 };
 
 const createStudentInternal = async (studentBody: CreateStudentPayload, actor: IUserDoc) => {
+  assertStudentWriteAccessRole(actor);
   const { school, classItem } = await validateSchoolAndClass(studentBody.school, studentBody.classId, actor);
 
   const regNumber = studentBody.regNumber.trim().toUpperCase();
@@ -211,6 +248,7 @@ const createStudentInternal = async (studentBody: CreateStudentPayload, actor: I
     localGovernment: studentBody.localGovernment,
     gender: studentBody.gender,
     dateOfBirth: studentBody.dateOfBirth,
+    guardianIds: Array.isArray(studentBody.guardianIds) ? studentBody.guardianIds : [],
     status: studentBody.status || 'active',
   });
 
@@ -256,7 +294,7 @@ export const createStudentsBulk = async (students: CreateStudentPayload[], actor
 };
 
 export const queryStudents = async (filter: any, options: any, actor: IUserDoc) => {
-  assertStudentAccessRole(actor);
+  assertStudentReadAccessRole(actor);
 
   const { school, classId, academicSession, academicSessionId, ...studentFilter } = filter;
 
@@ -279,9 +317,13 @@ export const queryStudents = async (filter: any, options: any, actor: IUserDoc) 
   const serialized = students
     .map((student) => {
       const placement = getEffectivePlacement(student as any, sessionMap.get(student.id), currentMap.get(student.id));
+      const placementWithGuardianIds = {
+        ...(placement || {}),
+        guardianIds: Array.isArray((student as any).guardianIds) ? (student as any).guardianIds : [],
+      };
       return {
         student,
-        placement,
+        placement: placementWithGuardianIds,
       };
     })
     .filter(({ placement }) => canActorAccessPlacement(actor, placement, schoolBoardSchoolIds))
@@ -302,10 +344,15 @@ export const queryStudents = async (filter: any, options: any, actor: IUserDoc) 
 };
 
 export const getStudentById = async (studentId: string, actor: IUserDoc) => {
-  assertStudentAccessRole(actor);
+  assertStudentReadAccessRole(actor);
   const { student, placement } = await getStudentWithPlacement(studentId);
 
-  if (!student || !canActorAccessPlacement(actor, placement)) {
+  const placementWithGuardianIds = {
+    ...(placement || {}),
+    guardianIds: student && Array.isArray((student as any).guardianIds) ? (student as any).guardianIds : [],
+  };
+
+  if (!student || !canActorAccessPlacement(actor, placementWithGuardianIds)) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Student not found');
   }
 
@@ -313,7 +360,7 @@ export const getStudentById = async (studentId: string, actor: IUserDoc) => {
 };
 
 export const updateStudentById = async (studentId: string, updateBody: Partial<IStudent>, actor: IUserDoc) => {
-  assertStudentAccessRole(actor);
+  assertStudentWriteAccessRole(actor);
   const { student, placement } = await getStudentWithPlacement(studentId);
 
   if (!student || !canActorAccessPlacement(actor, placement)) {
@@ -335,7 +382,7 @@ export const updateStudentById = async (studentId: string, updateBody: Partial<I
 };
 
 export const promoteStudentById = async (studentId: string, payload: PromoteStudentPayload, actor: IUserDoc) => {
-  assertStudentAccessRole(actor);
+  assertStudentWriteAccessRole(actor);
   const { student, placement } = await getStudentWithPlacement(studentId);
 
   if (!student || !canActorAccessPlacement(actor, placement)) {
@@ -365,7 +412,7 @@ export const promoteStudentById = async (studentId: string, payload: PromoteStud
 };
 
 export const deleteStudentById = async (studentId: string, actor: IUserDoc) => {
-  assertStudentAccessRole(actor);
+  assertStudentWriteAccessRole(actor);
   const { student, placement } = await getStudentWithPlacement(studentId);
 
   if (!student || !canActorAccessPlacement(actor, placement)) {

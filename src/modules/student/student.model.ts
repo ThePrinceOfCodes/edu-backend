@@ -51,6 +51,11 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
       type: Date,
       required: true,
     },
+    guardianIds: {
+      type: [String],
+      ref: 'User',
+      default: [],
+    },
     status: {
       type: String,
       enum: ['active', 'inactive'],
@@ -64,6 +69,7 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
 
 studentSchema.plugin(toJSON);
 studentSchema.plugin(paginate);
+studentSchema.index({ guardianIds: 1 });
 
 const Student = mongoose.model<IStudentDoc, IStudentModel>('Student', studentSchema);
 

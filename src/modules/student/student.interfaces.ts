@@ -9,6 +9,7 @@ export interface IStudent {
   localGovernment: string;
   gender: 'male' | 'female';
   dateOfBirth: Date;
+  guardianIds?: string[];
   status?: 'active' | 'inactive';
 }
 
