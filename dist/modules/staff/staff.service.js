@@ -57,6 +57,9 @@ const resolveSchoolScopeForCreate = async (payload, actor) => {
         if (!actor.schoolBoardId) {
             throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
         }
+        if (!payload.school) {
+            throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolId is required for school-board-admin');
+        }
         if (payload.school) {
             const school = await school_1.School.findById(payload.school);
             if (!school || school.schoolBoard !== actor.schoolBoardId) {
@@ -64,7 +67,6 @@ const resolveSchoolScopeForCreate = async (payload, actor) => {
             }
             return { schoolBoard: actor.schoolBoardId, school: school.id };
         }
-        return { schoolBoard: actor.schoolBoardId, school: null };
     }
     throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'Invalid role for staff creation');
 };

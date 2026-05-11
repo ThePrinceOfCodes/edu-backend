@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testPi = exports.testDocumentAi = exports.exportExtraction = exports.approveExtraction = exports.correctExtraction = exports.listPendingReviewExtractions = exports.listExtractions = exports.getExtraction = exports.createExtraction = void 0;
+exports.listQueueJobs = exports.retryFailedQueueJobs = exports.cleanQueueJobs = exports.resumeQueueProcessing = exports.pauseQueueProcessing = exports.getQueueHealth = exports.testPi = exports.testDocumentAi = exports.exportExtraction = exports.approveExtraction = exports.correctExtraction = exports.listPendingReviewExtractions = exports.listExtractions = exports.getExtraction = exports.createExtraction = void 0;
 const http_status_1 = __importDefault(require("http-status"));
 const utils_1 = require("../utils");
 const attendantExtractionService = __importStar(require("./attendant-extraction.service"));
@@ -44,36 +44,31 @@ const attendanceCorrectionService = __importStar(require("./attendance-correctio
 const attendanceExportService = __importStar(require("./attendance-export.service"));
 const attendant_extraction_model_1 = __importDefault(require("./attendant-extraction.model"));
 const errors_1 = require("../errors");
+const attendant_extraction_queue_1 = require("./attendant-extraction.queue");
 const getPublicBaseUrl = (req) => `${req.protocol}://${req.get('host') || ''}`;
 exports.createExtraction = (0, utils_1.catchAsync)(async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g;
     const file = req.file;
     const schoolId = (((_a = req.body) === null || _a === void 0 ? void 0 : _a['schoolId']) || ((_b = req.query) === null || _b === void 0 ? void 0 : _b['schoolId']) || ((_c = req.account) === null || _c === void 0 ? void 0 : _c['schoolId']));
-    const termId = (((_d = req.body) === null || _d === void 0 ? void 0 : _d['termId']) || ((_e = req.query) === null || _e === void 0 ? void 0 : _e['termId']));
-    const academicSessionId = (((_f = req.body) === null || _f === void 0 ? void 0 : _f['academicSessionId']) || ((_g = req.query) === null || _g === void 0 ? void 0 : _g['academicSessionId']));
-    const startDate = ((_h = req.body) === null || _h === void 0 ? void 0 : _h['startDate']) ? new Date(req.body['startDate']) : undefined;
-    const endDate = ((_j = req.body) === null || _j === void 0 ? void 0 : _j['endDate']) ? new Date(req.body['endDate']) : undefined;
+    const startDate = ((_d = req.body) === null || _d === void 0 ? void 0 : _d['startDate']) ? new Date(req.body['startDate']) : undefined;
+    const endDate = ((_e = req.body) === null || _e === void 0 ? void 0 : _e['endDate']) ? new Date(req.body['endDate']) : undefined;
     if (!schoolId)
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolId is required');
-    if (!termId)
-        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'termId is required');
-    if (!academicSessionId)
-        throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'academicSessionId is required');
     if (!startDate || isNaN(startDate.getTime()))
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'startDate is required and must be a valid date');
     if (!endDate || isNaN(endDate.getTime()))
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'endDate is required and must be a valid date');
     if (startDate > endDate)
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'startDate must be before or equal to endDate');
+    // Term lookup removed - termId and academicSessionId are optional for extraction
     const upload = await attendantExtractionService.saveUpload(file);
-    const extraction = await attendantExtractionService.createExtractionJob(upload, {
-        createdBy: String(((_k = req.account) === null || _k === void 0 ? void 0 : _k.id) || ((_l = req.account) === null || _l === void 0 ? void 0 : _l._id) || ''),
+    const context = {
+        createdBy: String(((_f = req.account) === null || _f === void 0 ? void 0 : _f.id) || ((_g = req.account) === null || _g === void 0 ? void 0 : _g._id) || ''),
         schoolId,
-        termId,
-        academicSessionId,
         startDate,
         endDate,
-    });
+    };
+    const extraction = await attendantExtractionService.createExtractionJob(upload, context);
     res.status(http_status_1.default.CREATED).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
 exports.getExtraction = (0, utils_1.catchAsync)(async (req, res) => {
@@ -136,5 +131,34 @@ exports.testPi = (0, utils_1.catchAsync)(async (req, res) => {
         options.ocrLayoutSummary = req.body['ocrLayoutSummary'];
     const result = await attendantExtractionService.runPiTest(file, options);
     res.status(http_status_1.default.OK).send(result);
+});
+exports.getQueueHealth = (0, utils_1.catchAsync)(async (_req, res) => {
+    const status = await (0, attendant_extraction_queue_1.getQueueStatus)();
+    res.status(http_status_1.default.OK).send(status);
+});
+exports.pauseQueueProcessing = (0, utils_1.catchAsync)(async (_req, res) => {
+    const result = await (0, attendant_extraction_queue_1.pauseQueue)();
+    res.status(http_status_1.default.OK).send(result);
+});
+exports.resumeQueueProcessing = (0, utils_1.catchAsync)(async (_req, res) => {
+    const result = await (0, attendant_extraction_queue_1.resumeQueue)();
+    res.status(http_status_1.default.OK).send(result);
+});
+exports.cleanQueueJobs = (0, utils_1.catchAsync)(async (req, res) => {
+    var _a;
+    const age = ((_a = req.body) === null || _a === void 0 ? void 0 : _a['age']) ? Number(req.body['age']) : undefined;
+    const result = await (0, attendant_extraction_queue_1.cleanQueue)(age);
+    res.status(http_status_1.default.OK).send(result);
+});
+exports.retryFailedQueueJobs = (0, utils_1.catchAsync)(async (_req, res) => {
+    const result = await (0, attendant_extraction_queue_1.retryFailedJobs)();
+    res.status(http_status_1.default.OK).send(result);
+});
+exports.listQueueJobs = (0, utils_1.catchAsync)(async (req, res) => {
+    const type = req.query['type'] || 'waiting';
+    const start = req.query['start'] ? Number(req.query['start']) : 0;
+    const end = req.query['end'] ? Number(req.query['end']) : 20;
+    const jobs = await (0, attendant_extraction_queue_1.getQueueJobs)(type, start, end);
+    res.status(http_status_1.default.OK).send({ jobs });
 });
 //# sourceMappingURL=attendant-extraction.controller.js.map

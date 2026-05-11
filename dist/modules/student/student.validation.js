@@ -15,6 +15,7 @@ exports.createStudent = {
         localGovernment: joi_1.default.string().trim().required(),
         gender: joi_1.default.string().valid('male', 'female').required(),
         dateOfBirth: joi_1.default.date().required(),
+        guardianIds: joi_1.default.array().items(joi_1.default.string().trim()).optional(),
         school: joi_1.default.string().trim().required(),
         classId: joi_1.default.string().trim().required(),
         status: joi_1.default.string().valid('active', 'inactive').optional(),
@@ -32,6 +33,7 @@ exports.createStudentsBulk = {
             localGovernment: joi_1.default.string().trim().required(),
             gender: joi_1.default.string().valid('male', 'female').required(),
             dateOfBirth: joi_1.default.date().required(),
+            guardianIds: joi_1.default.array().items(joi_1.default.string().trim()).optional(),
             school: joi_1.default.string().trim().required(),
             classId: joi_1.default.string().trim().required(),
             status: joi_1.default.string().valid('active', 'inactive').optional(),
@@ -42,6 +44,7 @@ exports.createStudentsBulk = {
 };
 exports.getStudents = {
     query: joi_1.default.object().keys({
+        q: joi_1.default.string().trim(),
         firstName: joi_1.default.string(),
         lastName: joi_1.default.string(),
         regNumber: joi_1.default.string(),
@@ -50,6 +53,8 @@ exports.getStudents = {
         gender: joi_1.default.string().valid('male', 'female'),
         school: joi_1.default.string(),
         classId: joi_1.default.string(),
+        academicSession: joi_1.default.string(),
+        academicSessionId: joi_1.default.string(),
         status: joi_1.default.string().valid('active', 'inactive'),
         sortBy: joi_1.default.string(),
         limit: joi_1.default.number().integer(),
@@ -74,6 +79,7 @@ exports.updateStudent = {
         localGovernment: joi_1.default.string().trim(),
         gender: joi_1.default.string().valid('male', 'female'),
         dateOfBirth: joi_1.default.date(),
+        guardianIds: joi_1.default.array().items(joi_1.default.string().trim()),
         status: joi_1.default.string().valid('active', 'inactive'),
     })
         .min(1),

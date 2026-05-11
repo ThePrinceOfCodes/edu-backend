@@ -36,9 +36,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.studentController = exports.studentService = exports.Student = void 0;
+exports.studentController = exports.studentService = exports.StudentEnrollment = exports.Student = void 0;
 const student_model_1 = __importDefault(require("./student.model"));
 exports.Student = student_model_1.default;
+const studentEnrollment_model_1 = __importDefault(require("./studentEnrollment.model"));
+exports.StudentEnrollment = studentEnrollment_model_1.default;
 const studentService = __importStar(require("./student.service"));
 exports.studentService = studentService;
 const studentController = __importStar(require("./student.controller"));

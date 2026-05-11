@@ -10,11 +10,14 @@ const schoolBoard_route_1 = __importDefault(require("./schoolBoard.route"));
 const school_route_1 = __importDefault(require("./school.route"));
 const staff_route_1 = __importDefault(require("./staff.route"));
 const schoolType_route_1 = __importDefault(require("./schoolType.route"));
+const subject_route_1 = __importDefault(require("./subject.route"));
 const class_route_1 = __importDefault(require("./class.route"));
 const student_route_1 = __importDefault(require("./student.route"));
+const guardian_route_1 = __importDefault(require("./guardian.route"));
 const academicSession_route_1 = __importDefault(require("./academicSession.route"));
 const term_route_1 = __importDefault(require("./term.route"));
 const attendance_route_1 = __importDefault(require("./attendance.route"));
+const result_route_1 = __importDefault(require("./result.route"));
 const attendant_extraction_route_1 = __importDefault(require("./attendant-extraction.route"));
 const attendant_review_route_1 = __importDefault(require("./attendant-review.route"));
 const messaging_route_1 = __importDefault(require("./messaging.route"));
@@ -47,12 +50,20 @@ const generalRoutes = [
         route: schoolType_route_1.default,
     },
     {
+        path: '/subjects',
+        route: subject_route_1.default,
+    },
+    {
         path: '/classes',
         route: class_route_1.default,
     },
     {
         path: '/students',
         route: student_route_1.default,
+    },
+    {
+        path: '/guardians',
+        route: guardian_route_1.default,
     },
     {
         path: '/academic-sessions',
@@ -65,6 +76,10 @@ const generalRoutes = [
     {
         path: '/attendance',
         route: attendance_route_1.default,
+    },
+    {
+        path: '/results',
+        route: result_route_1.default,
     },
     {
         path: '/attendant-extractions',

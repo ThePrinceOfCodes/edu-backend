@@ -6,6 +6,7 @@ import { School } from '../school';
 import { ClassModel } from '../class';
 import { Student } from '../student';
 import { termService, Term } from '../term';
+import { ITermDoc } from '../term/term.interfaces';
 import {
   findStudentIdsForPlacement,
   getCurrentEnrollmentMap,
@@ -28,8 +29,8 @@ type AttendanceContextOptions = {
 type CalendarSummaryContext = {
   classId: string;
   schoolId: string;
-  termId: string;
-  academicSessionId: string;
+  termId?: string;
+  academicSessionId?: string;
   month?: number;
   year?: number;
   publicBaseUrl?: string;
@@ -375,29 +376,51 @@ const buildDateRangeKeys = (startDate: Date, endDate: Date) => {
 
 export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: CalendarSummaryContext) => {
   const school = await resolveSchoolContext(actor, context.schoolId);
-  const term = await Term.findById(context.termId);
-  if (!term) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
+
+  // Term is optional - skip term validation if not provided
+  let term: ITermDoc | null = null;
+  if (context.termId) {
+    term = await Term.findById(context.termId);
+    if (!term) {
+      throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
+    }
+
+    await resolveClassContext(school.id, context.classId);
+
+    if (term.school && term.school !== school.id) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term is scoped to a different school');
+    }
+
+    if (!term.school && school.schoolBoard !== term.schoolBoard) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Selected global term does not match school board');
+    }
   }
 
+  // Validate class if term provided or not
   await resolveClassContext(school.id, context.classId);
 
-  if (term.school && term.school !== school.id) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Selected term is scoped to a different school');
+  // Build month window if we have term and month/year
+  let monthWindow: { startDate: Date; endDate: Date } | null = null;
+  if (term && context.month !== undefined && context.year !== undefined) {
+    monthWindow = buildMonthWindow(new Date(term.startDate), new Date(term.endDate), context.month, context.year);
   }
 
-  if (!term.school && school.schoolBoard !== term.schoolBoard) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Selected global term does not match school board');
+  // If no term, use provided month/year to build window
+  if (!term && context.month !== undefined && context.year !== undefined) {
+    monthWindow = {
+      startDate: new Date(context.year, context.month - 1, 1),
+      endDate: new Date(context.year, context.month, 0),
+    };
   }
 
-  const monthWindow = buildMonthWindow(new Date(term.startDate), new Date(term.endDate), context.month, context.year);
-  if (monthWindow.startDate > monthWindow.endDate) {
+  // Return empty calendar if no month window
+  if (!monthWindow) {
     return {
       school: {
         id: school.id,
         name: school.name,
       },
-      term: {
+      term: term ? {
         id: term.id,
         name: term.name,
         academicSession: term.academicSession,
@@ -407,7 +430,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
         endDate: term.endDate,
         isActive: term.isActive,
         resolvedScope: term.school ? 'school' : 'school-board',
-      },
+      } : undefined,
       class: {
         id: context.classId,
       },
@@ -422,14 +445,51 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
     };
   }
 
-  const extractions = await AttendantExtraction.find({
+  if (monthWindow.startDate > monthWindow.endDate) {
+    return {
+      school: {
+        id: school.id,
+        name: school.name,
+      },
+      term: term ? {
+        id: term.id,
+        name: term.name,
+        academicSession: term.academicSession,
+        schoolBoard: term.schoolBoard,
+        school: term.school,
+        startDate: term.startDate,
+        endDate: term.endDate,
+        isActive: term.isActive,
+        resolvedScope: term.school ? 'school' : 'school-board',
+      } : undefined,
+      class: {
+        id: context.classId,
+      },
+      days: [],
+      rows: [],
+      extractions: [],
+      reviewSummary: {
+        pending: 0,
+        resolved: 0,
+        ignored: 0,
+      },
+    };
+  }
+
+  // Query extractions - only filter by term if provided
+  const extractionQuery: Record<string, any> = {
     schoolId: school.id,
-    termId: term.id,
-    academicSessionId: context.academicSessionId,
     status: { $in: ['parsed', 'attendance_created', 'needs_review'] },
     startDate: { $lte: monthWindow.endDate },
     endDate: { $gte: monthWindow.startDate },
-  }).sort({ createdAt: 1 });
+  };
+  if (context['termId']) {
+    extractionQuery['termId'] = context['termId'];
+  }
+  if (context['academicSessionId']) {
+    extractionQuery['academicSessionId'] = context['academicSessionId'];
+  }
+  const extractions = await AttendantExtraction.find(extractionQuery).sort({ createdAt: 1 });
 
   const classStudentIds = await findStudentIdsForPlacement({
     schoolId: school.id,
@@ -501,7 +561,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
       id: school.id,
       name: school.name,
     },
-    term: {
+    term: term ? {
       id: term.id,
       name: term.name,
       academicSession: term.academicSession,
@@ -511,7 +571,7 @@ export const getAttendanceCalendarSummary = async (actor: IUserDoc, context: Cal
       endDate: term.endDate,
       isActive: term.isActive,
       resolvedScope: term.school ? 'school' : 'school-board',
-    },
+    } : undefined,
     class: {
       id: context.classId,
     },

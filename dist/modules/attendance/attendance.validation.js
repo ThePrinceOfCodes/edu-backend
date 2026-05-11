@@ -28,10 +28,10 @@ exports.getAttendanceCalendarSummary = {
     query: joi_1.default.object().keys({
         classId: joi_1.default.string().required(),
         schoolId: joi_1.default.string().required(),
-        termId: joi_1.default.string().required(),
-        academicSessionId: joi_1.default.string().required(),
-        month: joi_1.default.number().integer().min(1).max(12).optional(),
-        year: joi_1.default.number().integer().min(2000).max(3000).optional(),
+        termId: joi_1.default.string().optional(),
+        academicSessionId: joi_1.default.string().optional(),
+        month: joi_1.default.number().integer().min(1).max(12).required(),
+        year: joi_1.default.number().integer().min(2000).max(3000).required(),
     }),
 };
 //# sourceMappingURL=attendance.validation.js.map

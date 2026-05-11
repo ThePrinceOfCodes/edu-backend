@@ -121,9 +121,10 @@ const ensureResultPlacementValid = async (payload: CreateResultPayload, schoolBo
     $or: [{ academicSessionId: payload.academicSessionId }, { academicSession: sessionLabel }],
   });
 
-  const fallbackPlacementMatches = student.school === payload.school && student.classId === payload.classId;
+  // Note: StudentEnrollment query above is the authoritative placement check
+  // student.school/classId fields don't exist on Student model - removed invalid fallback
 
-  if (!enrollment && !fallbackPlacementMatches) {
+  if (!enrollment) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       'Student is not enrolled in the selected school/class for the selected academic session'
@@ -173,7 +174,7 @@ const resolveSubjectName = async (subjectValue: string) => {
 
 export const createResult = async (payload: CreateResultPayload, actor: IUserDoc) => {
   const school = await ensureActorCanWriteToSchool(actor, payload.school);
-  await ensureResultPlacementValid(payload, school.schoolBoard);
+  await ensureResultPlacementValid(payload, school.schoolBoard || '');
 
   const normalizedSubject = await resolveSubjectName(payload.subject);
   const totalScore = payload.testScore + payload.examScore;

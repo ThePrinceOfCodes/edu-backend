@@ -9,6 +9,7 @@ const errors_1 = require("../errors");
 const school_model_1 = __importDefault(require("../school/school.model"));
 const school_type_1 = require("../school-type");
 const student_model_1 = __importDefault(require("../student/student.model"));
+const studentEnrollment_model_1 = __importDefault(require("../student/studentEnrollment.model"));
 const class_model_1 = __importDefault(require("./class.model"));
 const resolveSchoolScope = async (actor, schoolId) => {
     let effectiveSchoolId = schoolId;
@@ -27,7 +28,7 @@ const resolveSchoolScope = async (actor, schoolId) => {
                 throw new errors_1.ApiError(http_status_1.default.FORBIDDEN, 'School board context is missing for this user');
             }
             if (!effectiveSchoolId) {
-                throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'schoolId is required for school-board-admin');
+                return null;
             }
             const school = await school_model_1.default.findById(effectiveSchoolId);
             if (!school || school.schoolBoard !== actor.schoolBoardId) {
@@ -61,10 +62,28 @@ const queryClasses = async (filter, options, actor, schoolId) => {
     if (!effectiveSchoolId) {
         return class_model_1.default.paginate(filter, options);
     }
-    const studentCounts = await student_model_1.default.aggregate([
-        { $match: { school: effectiveSchoolId, status: 'active' } },
+    // Prefer current enrollment placement to support migrated student data.
+    let studentCounts = await studentEnrollment_model_1.default.aggregate([
+        { $match: { school: effectiveSchoolId, isCurrent: true } },
+        {
+            $lookup: {
+                from: 'students',
+                localField: 'student',
+                foreignField: '_id',
+                as: 'studentDoc',
+            },
+        },
+        { $unwind: '$studentDoc' },
+        { $match: { 'studentDoc.status': 'active' } },
         { $group: { _id: '$classId', studentCount: { $sum: 1 } } },
     ]);
+    // Legacy fallback for old student-level placement fields.
+    if (!studentCounts.length) {
+        studentCounts = await student_model_1.default.aggregate([
+            { $match: { school: effectiveSchoolId, status: 'active' } },
+            { $group: { _id: '$classId', studentCount: { $sum: 1 } } },
+        ]);
+    }
     if (!studentCounts.length) {
         return {
             results: [],

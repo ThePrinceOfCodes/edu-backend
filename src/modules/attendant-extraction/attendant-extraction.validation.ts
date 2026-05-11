@@ -3,8 +3,6 @@ import Joi from 'joi';
 export const createExtraction = {
   body: Joi.object().keys({
     schoolId: Joi.string().required(),
-    termId: Joi.string().required(),
-    academicSessionId: Joi.string().required(),
     startDate: Joi.date().required(),
     endDate: Joi.date().required(),
   }),

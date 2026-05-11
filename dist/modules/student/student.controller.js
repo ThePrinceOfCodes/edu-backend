@@ -51,6 +51,7 @@ exports.createStudentsBulk = (0, utils_1.catchAsync)(async (req, res) => {
 });
 exports.getStudents = (0, utils_1.catchAsync)(async (req, res) => {
     const filter = (0, utils_1.pick)(req.query, [
+        'q',
         'firstName',
         'lastName',
         'regNumber',
@@ -59,6 +60,8 @@ exports.getStudents = (0, utils_1.catchAsync)(async (req, res) => {
         'gender',
         'school',
         'classId',
+        'academicSession',
+        'academicSessionId',
         'status',
     ]);
     const options = (0, utils_1.pick)(req.query, ['sortBy', 'limit', 'page']);

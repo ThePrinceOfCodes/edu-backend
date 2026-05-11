@@ -80,4 +80,41 @@ router.get(
   attendantExtractionController.exportExtraction
 );
 
+router.get(
+  '/queue/status',
+  authenticate,
+  authorize('attendance.admin'),
+  attendantExtractionController.getQueueHealth
+);
+router.post(
+  '/queue/pause',
+  authenticate,
+  authorize('attendance.admin'),
+  attendantExtractionController.pauseQueueProcessing
+);
+router.post(
+  '/queue/resume',
+  authenticate,
+  authorize('attendance.admin'),
+  attendantExtractionController.resumeQueueProcessing
+);
+router.post(
+  '/queue/clean',
+  authenticate,
+  authorize('attendance.admin'),
+  attendantExtractionController.cleanQueueJobs
+);
+router.post(
+  '/queue/retry-failed',
+  authenticate,
+  authorize('attendance.admin'),
+  attendantExtractionController.retryFailedQueueJobs
+);
+router.get(
+  '/queue/jobs',
+  authenticate,
+  authorize('attendance.admin'),
+  attendantExtractionController.listQueueJobs
+);
+
 export default router;

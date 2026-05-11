@@ -7,37 +7,6 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const uuid_1 = require("uuid");
 const toJSON_1 = require("../toJSON");
 const paginate_1 = require("../paginate");
-const studentHistorySchema = new mongoose_1.default.Schema({
-    fromSchool: {
-        type: String,
-        ref: 'School',
-        default: null,
-    },
-    toSchool: {
-        type: String,
-        ref: 'School',
-        default: null,
-    },
-    fromClassId: {
-        type: String,
-        ref: 'Class',
-        default: null,
-    },
-    toClassId: {
-        type: String,
-        ref: 'Class',
-        required: true,
-    },
-    action: {
-        type: String,
-        enum: ['created', 'promoted', 'transferred'],
-        required: true,
-    },
-    changedAt: {
-        type: Date,
-        default: Date.now,
-    },
-}, { _id: false });
 const studentSchema = new mongoose_1.default.Schema({
     _id: {
         type: String,
@@ -84,35 +53,22 @@ const studentSchema = new mongoose_1.default.Schema({
         type: Date,
         required: true,
     },
-    schoolBoard: {
-        type: String,
-        ref: 'SchoolBoard',
-        default: null,
-    },
-    school: {
-        type: String,
-        ref: 'School',
-        required: true,
-    },
-    classId: {
-        type: String,
-        ref: 'Class',
-        required: true,
+    guardianIds: {
+        type: [String],
+        ref: 'User',
+        default: [],
     },
     status: {
         type: String,
         enum: ['active', 'inactive'],
         default: 'active',
     },
-    promotionHistory: {
-        type: [studentHistorySchema],
-        default: [],
-    },
 }, {
     timestamps: true,
 });
 studentSchema.plugin(toJSON_1.toJSON);
 studentSchema.plugin(paginate_1.paginate);
+studentSchema.index({ guardianIds: 1 });
 const Student = mongoose_1.default.model('Student', studentSchema);
 exports.default = Student;
 //# sourceMappingURL=student.model.js.map

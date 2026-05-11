@@ -25,10 +25,10 @@ export const getAttendanceCalendarSummary = {
   query: Joi.object().keys({
     classId: Joi.string().required(),
     schoolId: Joi.string().required(),
-    termId: Joi.string().required(),
-    academicSessionId: Joi.string().required(),
-    month: Joi.number().integer().min(1).max(12).optional(),
-    year: Joi.number().integer().min(2000).max(3000).optional(),
+    termId: Joi.string().optional(),
+    academicSessionId: Joi.string().optional(),
+    month: Joi.number().integer().min(1).max(12).required(),
+    year: Joi.number().integer().min(2000).max(3000).required(),
   }),
 };
 

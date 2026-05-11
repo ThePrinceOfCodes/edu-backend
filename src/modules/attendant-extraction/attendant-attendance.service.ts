@@ -2,7 +2,6 @@ import httpStatus from 'http-status';
 import { ApiError } from '../errors';
 import Attendance from '../attendance/attendance.model';
 import { Student } from '../student';
-import { Term } from '../term';
 import { School } from '../school';
 import { findStudentIdsForPlacement } from '../student/studentEnrollment.helpers';
 import { normaliseStatusMark } from './attendant-parser.service';
@@ -36,8 +35,6 @@ const flattenAttendanceMarks = (attendance: Record<string, string>): string[] =>
 
 export const createAttendanceFromParsedRows = async (payload: {
   schoolId: string;
-  termId: string;
-  academicSessionId: string;
   /** Ordered Mon–Fri working days for the attendance period */
   workingDays: Date[];
   rows: Array<{ admissionNumber?: string | null; studentName?: string | null; statusMarks?: string[] }>;
@@ -45,13 +42,9 @@ export const createAttendanceFromParsedRows = async (payload: {
   const school = await School.findById(payload.schoolId);
   if (!school) throw new ApiError(httpStatus.NOT_FOUND, 'School not found');
 
-  const term = await Term.findById(payload.termId);
-  if (!term) throw new ApiError(httpStatus.NOT_FOUND, 'Term not found');
-
   const allowedStudentIds = new Set(
     await findStudentIdsForPlacement({
       schoolId: payload.schoolId,
-      academicSession: term.academicSession,
     })
   );
 
@@ -110,8 +103,6 @@ export const createAttendanceFromParsedRows = async (payload: {
 
 export const createAttendanceFromExtractionPayload = async (payload: {
   schoolId: string;
-  termId: string;
-  academicSessionId: string;
   startDate: Date;
   endDate: Date;
   students: Array<{
@@ -122,8 +113,6 @@ export const createAttendanceFromExtractionPayload = async (payload: {
 }) => {
   return createAttendanceFromParsedRows({
     schoolId: payload.schoolId,
-    termId: payload.termId,
-    academicSessionId: payload.academicSessionId,
     workingDays: getWorkingDays(payload.startDate, payload.endDate),
     rows: payload.students.map((student) => ({
       admissionNumber: student.admission_number,

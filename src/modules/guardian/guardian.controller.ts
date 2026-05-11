@@ -9,9 +9,9 @@ export const createGuardian = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const getGuardians = catchAsync(async (req: Request, res: Response) => {
-  const result = await guardianService.getGuardians(req.account, {
-    q: req.query['q'] as string | undefined,
-  });
+  const qParam = req.query['q'] as string | undefined;
+  const query = qParam ? { q: qParam } : undefined;
+  const result = await guardianService.getGuardians(req.account, query);
   res.send(result);
 });
 

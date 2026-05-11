@@ -39,5 +39,11 @@ router.get('/:id', auth_1.authenticate, (0, auth_1.authorize)('attendance.read')
 router.patch('/:id/correct', auth_1.authenticate, (0, auth_1.authorize)('attendance.write'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.correctExtraction), attendant_extraction_1.attendantExtractionController.correctExtraction);
 router.post('/:id/approve', auth_1.authenticate, (0, auth_1.authorize)('attendance.write'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.approveExtraction), attendant_extraction_1.attendantExtractionController.approveExtraction);
 router.get('/:id/export', auth_1.authenticate, (0, auth_1.authorize)('attendance.write'), (0, validate_middleware_1.default)(attendant_extraction_2.attendantExtractionValidation.exportExtraction), attendant_extraction_1.attendantExtractionController.exportExtraction);
+router.get('/queue/status', auth_1.authenticate, (0, auth_1.authorize)('attendance.admin'), attendant_extraction_1.attendantExtractionController.getQueueHealth);
+router.post('/queue/pause', auth_1.authenticate, (0, auth_1.authorize)('attendance.admin'), attendant_extraction_1.attendantExtractionController.pauseQueueProcessing);
+router.post('/queue/resume', auth_1.authenticate, (0, auth_1.authorize)('attendance.admin'), attendant_extraction_1.attendantExtractionController.resumeQueueProcessing);
+router.post('/queue/clean', auth_1.authenticate, (0, auth_1.authorize)('attendance.admin'), attendant_extraction_1.attendantExtractionController.cleanQueueJobs);
+router.post('/queue/retry-failed', auth_1.authenticate, (0, auth_1.authorize)('attendance.admin'), attendant_extraction_1.attendantExtractionController.retryFailedQueueJobs);
+router.get('/queue/jobs', auth_1.authenticate, (0, auth_1.authorize)('attendance.admin'), attendant_extraction_1.attendantExtractionController.listQueueJobs);
 exports.default = router;
 //# sourceMappingURL=attendant-extraction.route.js.map

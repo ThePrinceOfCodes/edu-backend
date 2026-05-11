@@ -272,6 +272,8 @@ const ensureStudentsAndEnrollments = async (
     for (let classIndex = 0; classIndex < schoolEntry.config.classIds.length; classIndex += 1) {
       const classId = schoolEntry.config.classIds[classIndex]!;
       const classCode = schoolEntry.config.classCodes[classIndex]!;
+      // Mark classId as intentionally used for future enrollment ops
+      void classId;
       const studentsPerClass = getStudentsPerClass(schoolIndex, classIndex);
 
       for (let studentIndex = 0; studentIndex < studentsPerClass; studentIndex += 1) {

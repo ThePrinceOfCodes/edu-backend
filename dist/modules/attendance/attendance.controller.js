@@ -73,19 +73,38 @@ exports.getAttendanceSummary = (0, utils_1.catchAsync)(async (req, res) => {
     res.send(summary);
 });
 exports.getAttendanceCalendarSummary = (0, utils_1.catchAsync)(async (req, res) => {
+    var _a;
     const classId = req.query['classId'];
     const schoolId = req.query['schoolId'];
-    const termId = req.query['termId'];
-    const academicSessionId = req.query['academicSessionId'];
     const month = req.query['month'] ? Number(req.query['month']) : undefined;
     const year = req.query['year'] ? Number(req.query['year']) : undefined;
+    let foundTermId;
+    let foundAcademicSessionId;
+    // Try to find term by date range - but don't fail if not found
+    if (month !== undefined && year !== undefined) {
+        try {
+            const startOfMonth = new Date(year, month - 1, 1);
+            const endOfMonth = new Date(year, month, 0);
+            const termServiceModule = await Promise.resolve().then(() => __importStar(require('../term/term.service')));
+            const term = await termServiceModule.getTermForDateRange(startOfMonth, endOfMonth, req.account, schoolId);
+            foundTermId = (_a = term === null || term === void 0 ? void 0 : term._id) === null || _a === void 0 ? void 0 : _a.toString();
+            foundAcademicSessionId = term === null || term === void 0 ? void 0 : term.academicSession;
+        }
+        catch (e) {
+            // Term lookup failed - continue without termId (term is optional)
+        }
+    }
     const context = {
         classId,
         schoolId,
-        termId,
-        academicSessionId,
         publicBaseUrl: `${req.protocol}://${req.get('host') || ''}`,
     };
+    if (foundTermId) {
+        context.termId = foundTermId;
+    }
+    if (foundAcademicSessionId) {
+        context.academicSessionId = foundAcademicSessionId;
+    }
     if (month !== undefined) {
         context.month = month;
     }

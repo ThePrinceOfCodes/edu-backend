@@ -38,12 +38,10 @@ const attendantExtractionSchema = new mongoose_1.default.Schema({
     },
     termId: {
         type: String,
-        required: true,
         ref: 'Term',
     },
     academicSessionId: {
         type: String,
-        required: true,
         ref: 'AcademicSession',
     },
     startDate: {

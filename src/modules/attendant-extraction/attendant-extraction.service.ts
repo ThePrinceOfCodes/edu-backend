@@ -118,7 +118,7 @@ export const saveUpload = async (file: any) => {
 
 export const createExtractionJob = async (
   upload: { originalImagePath: string; mimeType: string },
-  context: { createdBy?: string; schoolId: string; termId: string; academicSessionId: string; startDate: Date; endDate: Date },
+  context: { createdBy?: string; schoolId: string; termId?: string; academicSessionId?: string; startDate: Date; endDate: Date },
 ) => {
   const extraction = await AttendantExtraction.create({
     createdBy: context.createdBy || null,
@@ -222,15 +222,29 @@ export const processExtraction = async (extractionId: string) => {
         ocrSummary: ocrSummary || {},
       });
     } catch (error) {
-      if (isRetryableExtractionError(error)) {
-        extraction.processingMeta = {
-          ...(extraction.processingMeta || {}),
-          stage: 'pi_pending',
-          lastRateLimitError: error instanceof Error ? error.message : String(error),
-        } as any;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isRetryable = isRetryableExtractionError(error);
+
+      logger.warn(`[attendant-extraction] Pi extraction failed: ${errorMessage}`);
+
+      extraction.processingMeta = {
+        ...(extraction.processingMeta || {}),
+        stage: isRetryable ? 'pi_pending' : 'needs_review',
+        piError: errorMessage,
+      } as any;
+
+      if (isRetryable) {
+        (extraction.processingMeta as any)['lastRateLimitError'] = errorMessage;
         await extraction.save();
+        throw error;
       }
-      throw error;
+
+      extraction.status = 'needs_review' as any;
+      extraction.validationErrors = [errorMessage];
+      extraction.rawOcrJson = documentAiOutput || {};
+      await extraction.save();
+
+      return extraction;
     }
 
     extraction.llmRawResponse = piResult.rawResponse;
@@ -266,8 +280,6 @@ export const processExtraction = async (extractionId: string) => {
     extraction.validationErrors = [];
     const createdAttendance = await createAttendanceFromExtractionPayload({
       schoolId: extraction.schoolId,
-      termId: extraction.termId,
-      academicSessionId: extraction.academicSessionId,
       startDate: new Date(extraction.startDate),
       endDate: new Date(extraction.endDate),
       students: validation.data.students.map((student) => ({

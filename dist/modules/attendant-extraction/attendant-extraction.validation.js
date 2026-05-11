@@ -8,8 +8,6 @@ const joi_1 = __importDefault(require("joi"));
 exports.createExtraction = {
     body: joi_1.default.object().keys({
         schoolId: joi_1.default.string().required(),
-        termId: joi_1.default.string().required(),
-        academicSessionId: joi_1.default.string().required(),
         startDate: joi_1.default.date().required(),
         endDate: joi_1.default.date().required(),
     }),

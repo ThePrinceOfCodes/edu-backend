@@ -8,8 +8,6 @@ import { createAttendanceFromExtractionPayload } from './attendant-attendance.se
 const persistCorrectedAttendance = async (extraction: any, payload: AttendanceExtractionPayload) => {
   const createdAttendance = await createAttendanceFromExtractionPayload({
     schoolId: extraction.schoolId,
-    termId: extraction.termId,
-    academicSessionId: extraction.academicSessionId,
     startDate: new Date(extraction.startDate),
     endDate: new Date(extraction.endDate),
     students: payload.students,

@@ -12,8 +12,6 @@ const attendant_attendance_service_1 = require("./attendant-attendance.service")
 const persistCorrectedAttendance = async (extraction, payload) => {
     const createdAttendance = await (0, attendant_attendance_service_1.createAttendanceFromExtractionPayload)({
         schoolId: extraction.schoolId,
-        termId: extraction.termId,
-        academicSessionId: extraction.academicSessionId,
         startDate: new Date(extraction.startDate),
         endDate: new Date(extraction.endDate),
         students: payload.students,

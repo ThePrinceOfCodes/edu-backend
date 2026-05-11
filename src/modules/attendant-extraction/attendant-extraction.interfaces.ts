@@ -23,8 +23,8 @@ export interface IAttendanceApprovalMeta {
 export interface IAttendantExtraction {
   createdBy?: string | null;
   schoolId: string;
-  termId: string;
-  academicSessionId: string;
+  termId?: string;
+  academicSessionId?: string;
   startDate: Date;
   endDate: Date;
   imagePath?: string;

@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPermissionsForRole = exports.ROLE_PERMISSIONS = exports.DEFAULT_CLIENT_USER_ROLE = exports.DEFAULT_INTERNAL_USER_ROLE = exports.USER_ROLES = exports.SCHOOL_USER_ROLES = exports.INTERNAL_USER_ROLES = void 0;
 exports.INTERNAL_USER_ROLES = ['super-admin', 'admin'];
-exports.SCHOOL_USER_ROLES = ['school-board-admin', 'school-admin', 'teacher', 'staff'];
+exports.SCHOOL_USER_ROLES = ['school-board-admin', 'school-admin', 'teacher', 'staff', 'guardian'];
 exports.USER_ROLES = [...exports.INTERNAL_USER_ROLES, ...exports.SCHOOL_USER_ROLES];
 exports.DEFAULT_INTERNAL_USER_ROLE = 'admin';
 exports.DEFAULT_CLIENT_USER_ROLE = 'staff';
@@ -26,6 +26,10 @@ exports.ROLE_PERMISSIONS = {
         'students.read',
         'students.write',
         'attendance.read',
+        'results.read',
+        'results.write',
+        'guardians.read',
+        'guardians.write',
         'messages.read',
         'messages.write',
         'messages.broadcast',
@@ -49,6 +53,10 @@ exports.ROLE_PERMISSIONS = {
         'students.read',
         'students.write',
         'attendance.read',
+        'results.read',
+        'results.write',
+        'guardians.read',
+        'guardians.write',
         'messages.read',
         'messages.write',
         'messages.broadcast',
@@ -71,6 +79,10 @@ exports.ROLE_PERMISSIONS = {
         'students.read',
         'students.write',
         'attendance.read',
+        'results.read',
+        'results.write',
+        'guardians.read',
+        'guardians.write',
         'messages.read',
         'messages.write',
         'events.read',
@@ -79,8 +91,29 @@ exports.ROLE_PERMISSIONS = {
         'terms.write',
         'academicSessions.read',
     ],
-    teacher: ['staff.read', 'classes.read', 'students.read', 'attendance.read', 'messages.read', 'messages.write', 'events.read'],
-    staff: ['staff.read', 'classes.read', 'students.read', 'attendance.read', 'messages.read', 'messages.write', 'events.read'],
+    teacher: [
+        'staff.read',
+        'classes.read',
+        'students.read',
+        'attendance.read',
+        'results.read',
+        'results.write',
+        'messages.read',
+        'messages.write',
+        'events.read',
+    ],
+    staff: [
+        'staff.read',
+        'classes.read',
+        'students.read',
+        'attendance.read',
+        'results.read',
+        'results.write',
+        'messages.read',
+        'messages.write',
+        'events.read',
+    ],
+    guardian: ['students.read', 'attendance.read', 'results.read', 'guardians.read'],
 };
 const getPermissionsForRole = (role) => {
     if (!role) {

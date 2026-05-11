@@ -7,33 +7,44 @@ import * as attendanceExportService from './attendance-export.service';
 import AttendantExtraction from './attendant-extraction.model';
 import { ApiError } from '../errors';
 import { AttendanceExtractionExportFormat } from './attendant-extraction.interfaces';
+import {
+  getQueueStatus,
+  pauseQueue,
+  resumeQueue,
+  cleanQueue,
+  retryFailedJobs,
+  getQueueJobs,
+} from './attendant-extraction.queue';
 
 const getPublicBaseUrl = (req: Request) => `${req.protocol}://${req.get('host') || ''}`;
 
 export const createExtraction = catchAsync(async (req: Request, res: Response) => {
   const file = (req as Request & { file?: any }).file;
   const schoolId = (req.body?.['schoolId'] || req.query?.['schoolId'] || req.account?.['schoolId']) as string | undefined;
-  const termId = (req.body?.['termId'] || req.query?.['termId']) as string | undefined;
-  const academicSessionId = (req.body?.['academicSessionId'] || req.query?.['academicSessionId']) as string | undefined;
   const startDate = req.body?.['startDate'] ? new Date(req.body['startDate'] as string) : undefined;
   const endDate = req.body?.['endDate'] ? new Date(req.body['endDate'] as string) : undefined;
 
   if (!schoolId) throw new ApiError(httpStatus.BAD_REQUEST, 'schoolId is required');
-  if (!termId) throw new ApiError(httpStatus.BAD_REQUEST, 'termId is required');
-  if (!academicSessionId) throw new ApiError(httpStatus.BAD_REQUEST, 'academicSessionId is required');
   if (!startDate || isNaN(startDate.getTime())) throw new ApiError(httpStatus.BAD_REQUEST, 'startDate is required and must be a valid date');
   if (!endDate || isNaN(endDate.getTime())) throw new ApiError(httpStatus.BAD_REQUEST, 'endDate is required and must be a valid date');
   if (startDate > endDate) throw new ApiError(httpStatus.BAD_REQUEST, 'startDate must be before or equal to endDate');
 
+  // Term lookup removed - termId and academicSessionId are optional for extraction
   const upload = await attendantExtractionService.saveUpload(file);
-  const extraction = await attendantExtractionService.createExtractionJob(upload, {
+  const context: {
+    createdBy: string;
+    schoolId: string;
+    startDate: Date;
+    endDate: Date;
+    termId?: string;
+    academicSessionId?: string;
+  } = {
     createdBy: String((req.account as any)?.id || (req.account as any)?._id || ''),
     schoolId,
-    termId,
-    academicSessionId,
     startDate,
     endDate,
-  });
+  };
+  const extraction = await attendantExtractionService.createExtractionJob(upload, context);
 
   res.status(httpStatus.CREATED).send(attendantExtractionService.serializeExtraction(extraction, getPublicBaseUrl(req)));
 });
@@ -112,4 +123,38 @@ export const testPi = catchAsync(async (req: Request, res: Response) => {
   const result = await attendantExtractionService.runPiTest(file, options);
 
   res.status(httpStatus.OK).send(result);
+});
+
+export const getQueueHealth = catchAsync(async (_req: Request, res: Response) => {
+  const status = await getQueueStatus();
+  res.status(httpStatus.OK).send(status);
+});
+
+export const pauseQueueProcessing = catchAsync(async (_req: Request, res: Response) => {
+  const result = await pauseQueue();
+  res.status(httpStatus.OK).send(result);
+});
+
+export const resumeQueueProcessing = catchAsync(async (_req: Request, res: Response) => {
+  const result = await resumeQueue();
+  res.status(httpStatus.OK).send(result);
+});
+
+export const cleanQueueJobs = catchAsync(async (req: Request, res: Response) => {
+  const age = req.body?.['age'] ? Number(req.body['age']) : undefined;
+  const result = await cleanQueue(age);
+  res.status(httpStatus.OK).send(result);
+});
+
+export const retryFailedQueueJobs = catchAsync(async (_req: Request, res: Response) => {
+  const result = await retryFailedJobs();
+  res.status(httpStatus.OK).send(result);
+});
+
+export const listQueueJobs = catchAsync(async (req: Request, res: Response) => {
+  const type = (req.query['type'] as 'waiting' | 'active' | 'failed') || 'waiting';
+  const start = req.query['start'] ? Number(req.query['start']) : 0;
+  const end = req.query['end'] ? Number(req.query['end']) : 20;
+  const jobs = await getQueueJobs(type, start, end);
+  res.status(httpStatus.OK).send({ jobs });
 });

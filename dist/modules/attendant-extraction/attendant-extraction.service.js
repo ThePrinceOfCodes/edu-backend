@@ -189,11 +189,20 @@ const processExtraction = async (extractionId) => {
             });
         }
         catch (error) {
-            if (isRetryableExtractionError(error)) {
-                extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { stage: 'pi_pending', lastRateLimitError: error instanceof Error ? error.message : String(error) });
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const isRetryable = isRetryableExtractionError(error);
+            logger_1.logger.warn(`[attendant-extraction] Pi extraction failed: ${errorMessage}`);
+            extraction.processingMeta = Object.assign(Object.assign({}, (extraction.processingMeta || {})), { stage: isRetryable ? 'pi_pending' : 'needs_review', piError: errorMessage });
+            if (isRetryable) {
+                extraction.processingMeta['lastRateLimitError'] = errorMessage;
                 await extraction.save();
+                throw error;
             }
-            throw error;
+            extraction.status = 'needs_review';
+            extraction.validationErrors = [errorMessage];
+            extraction.rawOcrJson = documentAiOutput || {};
+            await extraction.save();
+            return extraction;
         }
         extraction.llmRawResponse = piResult.rawResponse;
         extraction.provider = piResult.provider;
@@ -219,8 +228,6 @@ const processExtraction = async (extractionId) => {
         extraction.validationErrors = [];
         const createdAttendance = await (0, attendant_attendance_service_1.createAttendanceFromExtractionPayload)({
             schoolId: extraction.schoolId,
-            termId: extraction.termId,
-            academicSessionId: extraction.academicSessionId,
             startDate: new Date(extraction.startDate),
             endDate: new Date(extraction.endDate),
             students: validation.data.students.map((student) => ({
