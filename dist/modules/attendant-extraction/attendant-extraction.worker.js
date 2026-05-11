@@ -8,7 +8,7 @@ const bullmq_1 = require("bullmq");
 const config_1 = __importDefault(require("../../config/config"));
 const attendant_extraction_queue_1 = require("./attendant-extraction.queue");
 const attendant_extraction_service_1 = require("./attendant-extraction.service");
-const attendant_extraction_throttle_1 = require("./attendant-extraction.throttle");
+// import { markExtractionFinished, waitForExtractionCooldown } from './attendant-extraction.throttle';
 const connection = {
     host: config_1.default.redis.host,
     port: Number(config_1.default.redis.port),
@@ -17,13 +17,13 @@ const connection = {
 exports.attendantExtractionWorker = new bullmq_1.Worker(attendant_extraction_queue_1.ATTENDANT_EXTRACTION_QUEUE, async (job) => {
     if (job.name !== attendant_extraction_queue_1.attendantExtractionJobName)
         return null;
-    await (0, attendant_extraction_throttle_1.waitForExtractionCooldown)();
+    // await waitForExtractionCooldown();
     const { extractionId } = job.data;
     try {
         return await (0, attendant_extraction_service_1.processExtraction)(extractionId);
     }
     finally {
-        await (0, attendant_extraction_throttle_1.markExtractionFinished)();
+        // await markExtractionFinished();
     }
 }, {
     connection: connection,

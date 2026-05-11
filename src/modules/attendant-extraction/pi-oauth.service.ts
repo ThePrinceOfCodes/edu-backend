@@ -100,7 +100,6 @@ const buildAuthStore = (): AuthStore | null => {
 
 export const getRuntimePiOAuthProviderId = (): string | null => {
   const provider = config.piOAuth.provider?.trim();
-  console.log("[pi-oauth] Provider:", provider);
   if (!provider) return null;
   if (provider === 'open-codex') return OPENAI_CODEX_PROVIDER_ID;
   return provider;

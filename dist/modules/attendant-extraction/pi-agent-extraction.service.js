@@ -3,22 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.repairAttendanceJsonWithPi = exports.extractAttendanceWithPi = void 0;
+exports.repairAttendanceJsonWithPi = exports.extractAttendanceWithPi = exports.resolvePiModel = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
 const config_1 = __importDefault(require("../../config/config"));
 const errors_1 = require("../errors");
 const logger_1 = require("../logger");
 const pi_oauth_service_1 = require("./pi-oauth.service");
 const prompts_1 = require("./prompts");
-const resolveModel = async (modelRegistry) => {
-    const oauthProvider = (0, pi_oauth_service_1.getRuntimePiOAuthProviderId)();
-    if (oauthProvider === 'openai-codex') {
-        const codexModel = modelRegistry.find('openai-codex', 'gpt-5.3-codex');
-        if (!codexModel) {
-            throw new errors_1.ApiError(500, "Configured Pi model 'openai-codex/gpt-5.3-codex' was not found");
-        }
-        return codexModel;
-    }
+const resolvePiModel = async (modelRegistry) => {
     const configuredProvider = config_1.default.attendanceExtraction.provider;
     const configuredModel = config_1.default.attendanceExtraction.model;
     if (configuredProvider && configuredModel) {
@@ -27,6 +19,14 @@ const resolveModel = async (modelRegistry) => {
             throw new errors_1.ApiError(500, `Configured Pi model '${configuredProvider}/${configuredModel}' was not found`);
         }
         return explicitModel;
+    }
+    const oauthProvider = (0, pi_oauth_service_1.getRuntimePiOAuthProviderId)();
+    if (oauthProvider === 'openai-codex') {
+        const codexModel = modelRegistry.find('openai-codex', 'gpt-5.3-codex');
+        if (!codexModel) {
+            throw new errors_1.ApiError(500, "Configured Pi model 'openai-codex/gpt-5.3-codex' was not found");
+        }
+        return codexModel;
     }
     const availableModels = modelRegistry.getAvailable().filter((model) => Array.isArray(model.input) && model.input.includes('image'));
     const providerFilteredModels = configuredProvider
@@ -38,6 +38,7 @@ const resolveModel = async (modelRegistry) => {
     }
     return selectedModel;
 };
+exports.resolvePiModel = resolvePiModel;
 const createPrompt = (_input) => {
     return `${prompts_1.ATTENDANCE_EXTRACTION_PROMPT}`;
 };
@@ -55,7 +56,9 @@ const createPiSession = async () => {
     const authStorage = sdk.AuthStorage.create();
     const oauthKey = await (0, pi_oauth_service_1.getPiOAuthApiKey)();
     const oauthProvider = (0, pi_oauth_service_1.getRuntimePiOAuthProviderId)();
-    if (oauthKey && oauthProvider) {
+    const preferredProvider = config_1.default.attendanceExtraction.provider;
+    const isOpenAiMode = preferredProvider === 'openai';
+    if (!isOpenAiMode && oauthKey && oauthProvider) {
         authStorage.setRuntimeApiKey(oauthProvider, oauthKey);
         logger_1.logger.debug(`[pi-agent] Using Pi OAuth key for provider '${oauthProvider}'`);
     }
@@ -63,7 +66,7 @@ const createPiSession = async () => {
     if (openai)
         authStorage.setRuntimeApiKey('openai', openai);
     const modelRegistry = sdk.ModelRegistry.create(authStorage);
-    const model = await resolveModel(modelRegistry);
+    const model = await (0, exports.resolvePiModel)(modelRegistry);
     const { session } = await sdk.createAgentSession({
         sessionManager: sdk.SessionManager.inMemory(process.cwd()),
         authStorage,
@@ -73,11 +76,23 @@ const createPiSession = async () => {
     });
     return { session, model };
 };
+const extractAssistantText = (session) => {
+    var _a, _b, _c, _d, _e;
+    const lastAssistant = (_b = (_a = session.state) === null || _a === void 0 ? void 0 : _a.messages) === null || _b === void 0 ? void 0 : _b.slice().reverse().find((message) => message.role === 'assistant');
+    const fromState = (_d = (_c = lastAssistant === null || lastAssistant === void 0 ? void 0 : lastAssistant.content) === null || _c === void 0 ? void 0 : _c.find((item) => item.type === 'text')) === null || _d === void 0 ? void 0 : _d.text;
+    return ((_e = session.getLastAssistantText) === null || _e === void 0 ? void 0 : _e.call(session)) || fromState;
+};
 const promptPiSession = async (session, prompt, imagePath, mimeType) => {
-    await session.prompt(prompt, {
-        images: [await createImagePayload(imagePath, mimeType)],
-    });
-    const responseText = session.getLastAssistantText();
+    const imagePayload = await createImagePayload(imagePath, mimeType);
+    await Promise.race([
+        session.prompt(prompt, {
+            images: [imagePayload],
+        }),
+        new Promise((_, reject) => {
+            setTimeout(() => reject(new errors_1.ApiError(504, 'Vision LLM request timed out after 120000ms')), 120000);
+        }),
+    ]);
+    const responseText = extractAssistantText(session);
     if (!responseText) {
         throw new errors_1.ApiError(504, 'Vision LLM returned an empty response');
     }
@@ -86,6 +101,7 @@ const promptPiSession = async (session, prompt, imagePath, mimeType) => {
 const extractAttendanceWithPi = async (input) => {
     const { session, model } = await createPiSession();
     try {
+        logger_1.logger.info(`[pi-agent] Running attendant extraction with ${model.provider}/${model.id}`);
         const responseText = await promptPiSession(session, createPrompt(input), input.imagePath, input.mimeType);
         return {
             rawResponse: responseText,

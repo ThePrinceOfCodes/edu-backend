@@ -34,6 +34,7 @@ const buildStoredFileName = (file) => {
     };
     return `${file.filename}${extensionByMimeType[file.mimetype] || ''}`;
 };
+const resolveStoragePath = (filePath) => (path_1.default.isAbsolute(filePath) ? filePath : path_1.default.resolve(process.cwd(), filePath));
 const normalizePublicFilePath = (filePath) => {
     if (!filePath) {
         return null;
@@ -90,8 +91,9 @@ const saveUpload = async (file) => {
     if (!file) {
         throw new errors_1.ApiError(http_status_1.default.BAD_REQUEST, 'Image file is required');
     }
-    await promises_1.default.mkdir(config_1.default.attendantUploadsDir, { recursive: true });
-    const targetPath = path_1.default.join(config_1.default.attendantUploadsDir, buildStoredFileName(file));
+    const uploadDir = resolveStoragePath(config_1.default.attendantUploadsDir);
+    await promises_1.default.mkdir(uploadDir, { recursive: true });
+    const targetPath = path_1.default.join(uploadDir, buildStoredFileName(file));
     if (file.path !== targetPath) {
         await promises_1.default.rename(file.path, targetPath);
     }
@@ -143,6 +145,10 @@ const processExtraction = async (extractionId) => {
             catch (error) {
                 if ((0, document_ai_service_1.isDocumentAiInvalidArgumentError)(error)) {
                     logger_1.logger.warn('[DocumentAI] Preprocessed file rejected, retrying with original upload');
+                    documentAiOutput = await (0, document_ai_service_1.processDocument)(extraction.originalImagePath, extraction.mimeType);
+                }
+                else if (error instanceof Error && /timed out/i.test(error.message)) {
+                    logger_1.logger.warn('[DocumentAI] Preprocessed file timed out, retrying with original upload');
                     documentAiOutput = await (0, document_ai_service_1.processDocument)(extraction.originalImagePath, extraction.mimeType);
                 }
                 else if (isRetryableExtractionError(error)) {

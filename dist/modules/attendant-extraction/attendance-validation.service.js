@@ -8,7 +8,22 @@ const normalizeUnknown = (value) => {
     }
     return JSON.stringify(value);
 };
-const parseJsonCandidate = (rawResponse) => JSON.parse(rawResponse);
+const extractJsonFromMarkdown = (input) => {
+    const trimmed = input.trim();
+    const codeBlockMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+    if (codeBlockMatch === null || codeBlockMatch === void 0 ? void 0 : codeBlockMatch[1]) {
+        return codeBlockMatch[1].trim();
+    }
+    const inlineCodeMatch = trimmed.match(/^`([^`]+)`$/);
+    if (inlineCodeMatch === null || inlineCodeMatch === void 0 ? void 0 : inlineCodeMatch[1]) {
+        return inlineCodeMatch[1].trim();
+    }
+    return input;
+};
+const parseJsonCandidate = (rawResponse) => {
+    const cleaned = extractJsonFromMarkdown(rawResponse);
+    return JSON.parse(cleaned);
+};
 exports.parseJsonCandidate = parseJsonCandidate;
 const formatValidationErrors = (error) => error.issues.map((issue) => {
     const path = issue.path.length > 0 ? issue.path.join('.') : 'root';

@@ -23,7 +23,23 @@ const normalizeUnknown = (value: unknown): string => {
   return JSON.stringify(value);
 };
 
-export const parseJsonCandidate = (rawResponse: string): unknown => JSON.parse(rawResponse);
+const extractJsonFromMarkdown = (input: string): string => {
+  const trimmed = input.trim();
+  const codeBlockMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+  if (codeBlockMatch?.[1]) {
+    return codeBlockMatch[1].trim();
+  }
+  const inlineCodeMatch = trimmed.match(/^`([^`]+)`$/);
+  if (inlineCodeMatch?.[1]) {
+    return inlineCodeMatch[1].trim();
+  }
+  return input;
+};
+
+export const parseJsonCandidate = (rawResponse: string): unknown => {
+  const cleaned = extractJsonFromMarkdown(rawResponse);
+  return JSON.parse(cleaned);
+};
 
 export const formatValidationErrors = (error: ZodError): string[] =>
   error.issues.map((issue) => {

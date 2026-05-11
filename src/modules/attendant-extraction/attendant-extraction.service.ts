@@ -33,6 +33,8 @@ const buildStoredFileName = (file: any) => {
   return `${file.filename}${extensionByMimeType[file.mimetype] || ''}`;
 };
 
+const resolveStoragePath = (filePath: string) => (path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath));
+
 const normalizePublicFilePath = (filePath?: string | null) => {
   if (!filePath) {
     return null;
@@ -101,8 +103,9 @@ export const saveUpload = async (file: any) => {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Image file is required');
   }
 
-  await fs.mkdir(config.attendantUploadsDir, { recursive: true });
-  const targetPath = path.join(config.attendantUploadsDir, buildStoredFileName(file));
+  const uploadDir = resolveStoragePath(config.attendantUploadsDir);
+  await fs.mkdir(uploadDir, { recursive: true });
+  const targetPath = path.join(uploadDir, buildStoredFileName(file));
   if (file.path !== targetPath) {
     await fs.rename(file.path, targetPath);
   }
@@ -165,6 +168,9 @@ export const processExtraction = async (extractionId: string) => {
         if (isDocumentAiInvalidArgumentError(error)) {
           logger.warn('[DocumentAI] Preprocessed file rejected, retrying with original upload');
           documentAiOutput = await processDocument(extraction.originalImagePath, extraction.mimeType);
+        } else if (error instanceof Error && /timed out/i.test(error.message)) {
+          logger.warn('[DocumentAI] Preprocessed file timed out, retrying with original upload');
+          documentAiOutput = await processDocument(extraction.originalImagePath, extraction.mimeType);
         } else if (isRetryableExtractionError(error)) {
           extraction.processingMeta = {
             ...(extraction.processingMeta || {}),
@@ -194,6 +200,7 @@ export const processExtraction = async (extractionId: string) => {
       extraction.status = 'ocr_completed';
       extraction.validationErrors = [];
       await extraction.save();
+
     } else if (!ocrSummary) {
       ocrSummary = buildOcrSummary(documentAiOutput || {});
       extraction.processingMeta = {

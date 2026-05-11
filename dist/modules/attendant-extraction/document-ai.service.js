@@ -62,9 +62,14 @@ const processDocument = async (filePath, mimeType) => {
             mimeType: resolvedMimeType,
         },
     };
-    const [result] = await client.processDocument(request, {
-        timeout: 600000,
-    });
+    const [result] = await Promise.race([
+        client.processDocument(request, {
+            timeout: 120000,
+        }),
+        new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Document AI request timed out after 120000ms')), 120000);
+        }),
+    ]);
     return result.document;
 };
 exports.processDocument = processDocument;
