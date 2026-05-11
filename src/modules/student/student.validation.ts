@@ -10,6 +10,7 @@ export const createStudent = {
     localGovernment: Joi.string().trim().required(),
     gender: Joi.string().valid('male', 'female').required(),
     dateOfBirth: Joi.date().required(),
+    guardianIds: Joi.array().items(Joi.string().trim()).optional(),
     school: Joi.string().trim().required(),
     classId: Joi.string().trim().required(),
     status: Joi.string().valid('active', 'inactive').optional(),
@@ -29,6 +30,7 @@ export const createStudentsBulk = {
           localGovernment: Joi.string().trim().required(),
           gender: Joi.string().valid('male', 'female').required(),
           dateOfBirth: Joi.date().required(),
+          guardianIds: Joi.array().items(Joi.string().trim()).optional(),
           school: Joi.string().trim().required(),
           classId: Joi.string().trim().required(),
           status: Joi.string().valid('active', 'inactive').optional(),
@@ -41,6 +43,7 @@ export const createStudentsBulk = {
 
 export const getStudents = {
   query: Joi.object().keys({
+    q: Joi.string().trim(),
     firstName: Joi.string(),
     lastName: Joi.string(),
     regNumber: Joi.string(),
@@ -49,6 +52,8 @@ export const getStudents = {
     gender: Joi.string().valid('male', 'female'),
     school: Joi.string(),
     classId: Joi.string(),
+    academicSession: Joi.string(),
+    academicSessionId: Joi.string(),
     status: Joi.string().valid('active', 'inactive'),
     sortBy: Joi.string(),
     limit: Joi.number().integer(),
@@ -75,6 +80,7 @@ export const updateStudent = {
       localGovernment: Joi.string().trim(),
       gender: Joi.string().valid('male', 'female'),
       dateOfBirth: Joi.date(),
+      guardianIds: Joi.array().items(Joi.string().trim()),
       status: Joi.string().valid('active', 'inactive'),
     })
     .min(1),

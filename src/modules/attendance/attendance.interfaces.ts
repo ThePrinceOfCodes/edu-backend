@@ -4,10 +4,8 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
 export interface IAttendance {
   student: string;
-  schoolBoard: string;
-  school: string;
-  academicSessionId: string;
-  termId: string;
+  regNumber: string;
+  schoolId: string;
   date: Date;
   status: AttendanceStatus;
   source?: string;

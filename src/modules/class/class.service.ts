@@ -3,6 +3,7 @@ import { ApiError } from '../errors';
 import School from '../school/school.model';
 import { SchoolType } from '../school-type';
 import Student from '../student/student.model';
+import StudentEnrollment from '../student/studentEnrollment.model';
 import { IUserDoc } from '../users/user.interfaces';
 import ClassModel from './class.model';
 import { IClass } from './class.interfaces';
@@ -29,7 +30,7 @@ const resolveSchoolScope = async (actor: IUserDoc, schoolId?: string) => {
       }
 
       if (!effectiveSchoolId) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'schoolId is required for school-board-admin');
+        return null;
       }
 
       const school = await School.findById(effectiveSchoolId);
@@ -72,10 +73,29 @@ export const queryClasses = async (filter: any, options: any, actor: IUserDoc, s
     return ClassModel.paginate(filter, options);
   }
 
-  const studentCounts = await Student.aggregate([
-    { $match: { school: effectiveSchoolId, status: 'active' } },
+  // Prefer current enrollment placement to support migrated student data.
+  let studentCounts = await StudentEnrollment.aggregate([
+    { $match: { school: effectiveSchoolId, isCurrent: true } },
+    {
+      $lookup: {
+        from: 'students',
+        localField: 'student',
+        foreignField: '_id',
+        as: 'studentDoc',
+      },
+    },
+    { $unwind: '$studentDoc' },
+    { $match: { 'studentDoc.status': 'active' } },
     { $group: { _id: '$classId', studentCount: { $sum: 1 } } },
   ]);
+
+  // Legacy fallback for old student-level placement fields.
+  if (!studentCounts.length) {
+    studentCounts = await Student.aggregate([
+      { $match: { school: effectiveSchoolId, status: 'active' } },
+      { $group: { _id: '$classId', studentCount: { $sum: 1 } } },
+    ]);
+  }
 
   if (!studentCounts.length) {
     return {
