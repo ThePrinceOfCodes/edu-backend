@@ -1,5 +1,15 @@
 import { Document, Model } from 'mongoose';
 
+export type GuardianRelationshipType = 'parent' | 'caretaker';
+export type ParentGuardianType = 'father' | 'mother';
+
+export interface IStudentGuardianLink {
+  guardianId: string;
+  relationshipType: GuardianRelationshipType;
+  parentType?: ParentGuardianType | null;
+  isPrimary?: boolean;
+}
+
 export interface IStudent {
   firstName: string;
   middleName?: string | null;
@@ -11,6 +21,8 @@ export interface IStudent {
   gender: 'male' | 'female';
   dateOfBirth: Date;
   guardianIds?: string[];
+  guardianLinks?: IStudentGuardianLink[];
+  primaryGuardianId?: string | null;
   status?: 'active' | 'inactive';
 }
 

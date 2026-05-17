@@ -21,11 +21,17 @@ type CreateGuardianPayload = {
   password: string;
   phoneNumber?: string;
   studentIds: string[];
+  relationshipType: 'parent' | 'caretaker';
+  parentType?: 'father' | 'mother' | null;
+  isPrimary?: boolean;
 };
 
 type MutateGuardianStudentLinksPayload = {
   guardianId: string;
   studentIds: string[];
+  relationshipType: 'parent' | 'caretaker';
+  parentType?: 'father' | 'mother' | null;
+  isPrimary?: boolean;
 };
 
 const canManageGuardians = (actor: IUserDoc) => {
@@ -78,6 +84,56 @@ const getGuardianById = async (guardianId: string) => {
   }
 
   return guardian;
+};
+
+const buildGuardianLink = (
+  guardianId: string,
+  relationshipType: 'parent' | 'caretaker',
+  parentType?: 'father' | 'mother' | null,
+  isPrimary = false
+) => ({
+  guardianId,
+  relationshipType,
+  parentType: relationshipType === 'parent' ? parentType || null : null,
+  isPrimary,
+});
+
+const applyGuardianLink = (
+  student: any,
+  link: ReturnType<typeof buildGuardianLink>,
+  removeGuardianId?: string
+) => {
+  const existingLinks = Array.isArray(student.guardianLinks) ? [...student.guardianLinks] : [];
+  let nextLinks = removeGuardianId
+    ? existingLinks.filter((item: any) => item.guardianId !== removeGuardianId)
+    : existingLinks.filter((item: any) => item.guardianId !== link.guardianId);
+
+  if (!removeGuardianId) {
+    if (link.isPrimary) {
+      nextLinks = nextLinks.map((item: any) => ({
+        ...item,
+        isPrimary: false,
+      }));
+    }
+
+    const existingIndex = nextLinks.findIndex((item: any) => item.guardianId === link.guardianId);
+    if (existingIndex >= 0) {
+      nextLinks[existingIndex] = {
+        ...nextLinks[existingIndex],
+        ...link,
+      };
+    } else {
+      nextLinks.push(link);
+    }
+  }
+
+  if (nextLinks.length > 0 && !nextLinks.some((item: any) => item.isPrimary)) {
+    nextLinks[0].isPrimary = true;
+  }
+
+  student.guardianLinks = nextLinks;
+  student.guardianIds = Array.from(new Set(nextLinks.map((item: any) => item.guardianId)));
+  student.primaryGuardianId = nextLinks.find((item: any) => item.isPrimary)?.guardianId || null;
 };
 
 const ensureActorCanManageStudents = async (actor: IUserDoc, studentIds: string[]) => {
@@ -163,14 +219,14 @@ export const createGuardian = async (payload: CreateGuardianPayload, actor: IUse
     provider: 'email',
   });
 
-  await Student.updateMany(
-    { _id: { $in: studentIds } },
-    {
-      $addToSet: {
-        guardianIds: guardian.id,
-      },
-    }
-  );
+  const students = await Student.find({ _id: { $in: studentIds } });
+  for (const student of students) {
+    applyGuardianLink(
+      student,
+      buildGuardianLink(guardian.id, payload.relationshipType, payload.parentType, payload.isPrimary)
+    );
+    await student.save();
+  }
 
   return {
     guardian,
@@ -194,8 +250,10 @@ export const getGuardians = async (actor: IUserDoc, query?: { q?: string }) => {
   }
 
   const guardianIds = guardians.map((item: any) => item._id);
-  const students = await Student.find({ guardianIds: { $in: guardianIds } })
-    .select('_id firstName middleName lastName regNumber guardianIds')
+  const students = await Student.find({
+    $or: [{ guardianIds: { $in: guardianIds } }, { 'guardianLinks.guardianId': { $in: guardianIds } }],
+  })
+    .select('_id firstName middleName lastName regNumber guardianIds guardianLinks primaryGuardianId')
     .lean();
 
   const enrollmentByStudentId = await getCurrentEnrollmentByStudentId(students.map((item: any) => item._id));
@@ -221,7 +279,10 @@ export const getGuardians = async (actor: IUserDoc, query?: { q?: string }) => {
     const fullName = `${student.firstName} ${student.middleName || ''} ${student.lastName}`.replace(/\s+/g, ' ').trim();
     const schoolName = enrollment?.school ? schoolNameMap.get(enrollment.school) || enrollment.school : null;
 
+    const guardianLinks = Array.isArray((student as any).guardianLinks) ? (student as any).guardianLinks : [];
+
     (student.guardianIds || []).forEach((guardianId: string) => {
+      const guardianLink = guardianLinks.find((item: any) => item.guardianId === guardianId);
       const list = guardianStudentMap.get(guardianId) || [];
       list.push({
         id: student._id,
@@ -229,6 +290,9 @@ export const getGuardians = async (actor: IUserDoc, query?: { q?: string }) => {
         regNumber: student.regNumber,
         schoolId: enrollment?.school || null,
         schoolName,
+        relationshipType: guardianLink?.relationshipType || null,
+        parentType: guardianLink?.parentType || null,
+        isPrimary: Boolean(guardianLink?.isPrimary || (student as any).primaryGuardianId === guardianId),
       });
       guardianStudentMap.set(guardianId, list);
     });
@@ -278,14 +342,14 @@ export const linkStudentsToGuardian = async (payload: MutateGuardianStudentLinks
 
   await ensureActorCanManageStudents(actor, studentIds);
 
-  await Student.updateMany(
-    { _id: { $in: studentIds } },
-    {
-      $addToSet: {
-        guardianIds: guardian.id,
-      },
-    }
-  );
+  const students = await Student.find({ _id: { $in: studentIds } });
+  for (const student of students) {
+    applyGuardianLink(
+      student,
+      buildGuardianLink(guardian.id, payload.relationshipType, payload.parentType, payload.isPrimary)
+    );
+    await student.save();
+  }
 
   return {
     guardianId: guardian.id,
@@ -308,14 +372,11 @@ export const unlinkStudentsFromGuardian = async (payload: MutateGuardianStudentL
 
   await ensureActorCanManageStudents(actor, studentIds);
 
-  await Student.updateMany(
-    { _id: { $in: studentIds } },
-    {
-      $pull: {
-        guardianIds: guardian.id,
-      },
-    }
-  );
+  const students = await Student.find({ _id: { $in: studentIds } });
+  for (const student of students) {
+    applyGuardianLink(student, buildGuardianLink(guardian.id, 'caretaker', null, false), guardian.id);
+    await student.save();
+  }
 
   return {
     guardianId: guardian.id,
@@ -330,7 +391,9 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
   }
 
   const guardianId = actor.id;
-  const students = await Student.find({ guardianIds: guardianId });
+  const students = await Student.find({
+    $or: [{ guardianIds: guardianId }, { 'guardianLinks.guardianId': guardianId }],
+  });
   const studentIds = students.map((item) => item.id);
 
   if (studentIds.length === 0) {
@@ -361,8 +424,13 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
 
   resultRows.forEach((item) => {
     if (item.school) schoolIds.add(item.school);
+    const guardianLinks = Array.isArray(student.guardianLinks) ? student.guardianLinks : [];
+    const linkedGuardianIds = new Set([
+      ...(Array.isArray(student.guardianIds) ? student.guardianIds : []),
+      ...guardianLinks.map((link: any) => link.guardianId),
+    ]);
     if (item.classId) classIds.add(item.classId);
-    if (item.termId) termIds.add(item.termId);
+    Array.from(linkedGuardianIds).forEach((guardianId: string) => {
     if (item.academicSessionId) sessionIds.add(item.academicSessionId);
   });
 

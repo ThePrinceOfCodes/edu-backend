@@ -23,6 +23,61 @@ type PromoteStudentPayload = {
   classId: string;
 };
 
+const normalizeGuardianLinks = (payload: any) => {
+  const guardianLinks = Array.isArray(payload.guardianLinks) ? payload.guardianLinks : [];
+  const guardianIds = Array.isArray(payload.guardianIds) ? payload.guardianIds : [];
+
+  const linkMap = new Map<
+    string,
+    {
+      guardianId: string;
+      relationshipType: 'parent' | 'caretaker';
+      parentType?: 'father' | 'mother' | null;
+      isPrimary?: boolean;
+    }
+  >();
+
+  guardianIds.forEach((guardianId: string) => {
+    if (!guardianId) {
+      return;
+    }
+
+    linkMap.set(guardianId, {
+      guardianId,
+      relationshipType: 'caretaker',
+      parentType: null,
+      isPrimary: false,
+    });
+  });
+
+  guardianLinks.forEach((link: any) => {
+    if (!link?.guardianId) {
+      return;
+    }
+
+    linkMap.set(link.guardianId, {
+      guardianId: link.guardianId,
+      relationshipType: link.relationshipType,
+      parentType: link.relationshipType === 'parent' ? link.parentType || null : null,
+      isPrimary: Boolean(link.isPrimary),
+    });
+  });
+
+  const links = Array.from(linkMap.values());
+  if (links.length > 0 && !links.some((link) => link.isPrimary)) {
+    const firstLink = links[0];
+    if (firstLink) {
+      firstLink.isPrimary = true;
+    }
+  }
+
+  return {
+    guardianIds: links.map((link) => link.guardianId),
+    guardianLinks: links,
+    primaryGuardianId: links.find((link) => link.isPrimary)?.guardianId || null,
+  };
+};
+
 const assertStudentReadAccessRole = (actor: IUserDoc) => {
   if (actor.accountType === 'internal') {
     return;
@@ -251,7 +306,7 @@ const createStudentInternal = async (studentBody: CreateStudentPayload, actor: I
     localGovernment: studentBody.localGovernment,
     gender: studentBody.gender,
     dateOfBirth: studentBody.dateOfBirth,
-    guardianIds: Array.isArray(studentBody.guardianIds) ? studentBody.guardianIds : [],
+    ...normalizeGuardianLinks(studentBody),
     status: studentBody.status || 'active',
   });
 

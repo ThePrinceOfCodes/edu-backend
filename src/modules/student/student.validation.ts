@@ -12,6 +12,21 @@ export const createStudent = {
     gender: Joi.string().valid('male', 'female').required(),
     dateOfBirth: Joi.date().required(),
     guardianIds: Joi.array().items(Joi.string().trim()).optional(),
+    guardianLinks: Joi.array()
+      .items(
+        Joi.object().keys({
+          guardianId: Joi.string().trim().required(),
+          relationshipType: Joi.string().valid('parent', 'caretaker').required(),
+          parentType: Joi.when('relationshipType', {
+            is: 'parent',
+            then: Joi.string().valid('father', 'mother').required(),
+            otherwise: Joi.string().valid('father', 'mother').allow(null).optional(),
+          }),
+          isPrimary: Joi.boolean().optional(),
+        })
+      )
+      .optional(),
+    primaryGuardianId: Joi.string().trim().allow(null, '').optional(),
     school: Joi.string().trim().required(),
     classId: Joi.string().trim().required(),
     status: Joi.string().valid('active', 'inactive').optional(),
@@ -33,6 +48,21 @@ export const createStudentsBulk = {
           gender: Joi.string().valid('male', 'female').required(),
           dateOfBirth: Joi.date().required(),
           guardianIds: Joi.array().items(Joi.string().trim()).optional(),
+          guardianLinks: Joi.array()
+            .items(
+              Joi.object().keys({
+                guardianId: Joi.string().trim().required(),
+                relationshipType: Joi.string().valid('parent', 'caretaker').required(),
+                parentType: Joi.when('relationshipType', {
+                  is: 'parent',
+                  then: Joi.string().valid('father', 'mother').required(),
+                  otherwise: Joi.string().valid('father', 'mother').allow(null).optional(),
+                }),
+                isPrimary: Joi.boolean().optional(),
+              })
+            )
+            .optional(),
+          primaryGuardianId: Joi.string().trim().allow(null, '').optional(),
           school: Joi.string().trim().required(),
           classId: Joi.string().trim().required(),
           status: Joi.string().valid('active', 'inactive').optional(),
@@ -84,6 +114,21 @@ export const updateStudent = {
       gender: Joi.string().valid('male', 'female'),
       dateOfBirth: Joi.date(),
       guardianIds: Joi.array().items(Joi.string().trim()),
+      guardianLinks: Joi.array()
+        .items(
+          Joi.object().keys({
+            guardianId: Joi.string().trim().required(),
+            relationshipType: Joi.string().valid('parent', 'caretaker').required(),
+            parentType: Joi.when('relationshipType', {
+              is: 'parent',
+              then: Joi.string().valid('father', 'mother').required(),
+              otherwise: Joi.string().valid('father', 'mother').allow(null).optional(),
+            }),
+            isPrimary: Joi.boolean().optional(),
+          })
+        )
+        .optional(),
+      primaryGuardianId: Joi.string().trim().allow(null, ''),
       status: Joi.string().valid('active', 'inactive'),
     })
     .min(1),

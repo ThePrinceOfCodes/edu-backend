@@ -4,6 +4,31 @@ import { toJSON } from '../toJSON';
 import { paginate } from '../paginate';
 import { IStudentDoc, IStudentModel } from './student.interfaces';
 
+const guardianLinkSchema = new mongoose.Schema(
+  {
+    guardianId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    relationshipType: {
+      type: String,
+      enum: ['parent', 'caretaker'],
+      required: true,
+    },
+    parentType: {
+      type: String,
+      enum: ['father', 'mother'],
+      default: null,
+    },
+    isPrimary: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: false }
+);
+
 const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
   {
     _id: {
@@ -61,6 +86,15 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
       ref: 'User',
       default: [],
     },
+    guardianLinks: {
+      type: [guardianLinkSchema],
+      default: [],
+    },
+    primaryGuardianId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     status: {
       type: String,
       enum: ['active', 'inactive'],
@@ -75,6 +109,8 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
 studentSchema.plugin(toJSON);
 studentSchema.plugin(paginate);
 studentSchema.index({ guardianIds: 1 });
+studentSchema.index({ 'guardianLinks.guardianId': 1 });
+studentSchema.index({ primaryGuardianId: 1 });
 
 const Student = mongoose.model<IStudentDoc, IStudentModel>('Student', studentSchema);
 

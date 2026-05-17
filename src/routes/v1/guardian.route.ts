@@ -33,7 +33,7 @@ router.post(
   '/:guardianId/unlink-students',
   authenticate,
   authorize('guardians.write'),
-  validate(guardianValidation.mutateGuardianLinks),
+  validate(guardianValidation.unlinkGuardianLinks),
   guardianController.unlinkStudentsFromGuardian
 );
 

@@ -34,3 +34,12 @@ export const mutateGuardianLinks = {
     studentIds: Joi.array().items(Joi.string().trim().required()).min(1).required(),
   }),
 };
+
+export const unlinkGuardianLinks = {
+  params: Joi.object().keys({
+    guardianId: Joi.string().required(),
+  }),
+  body: Joi.object().keys({
+    studentIds: Joi.array().items(Joi.string().trim().required()).min(1).required(),
+  }),
+};
