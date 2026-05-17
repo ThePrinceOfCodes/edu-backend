@@ -403,13 +403,15 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
         name: actor.name,
         email: actor.email,
       },
+      termOptions: [],
+      academicSessionOptions: [],
       students: [],
     };
   }
 
   const currentEnrollmentMap = await getCurrentEnrollmentMap(studentIds);
-  const attendanceRows = await Attendance.find({ student: { $in: studentIds } }).sort({ date: -1 });
-  const resultRows = await Result.find({ student: { $in: studentIds } }).sort({ createdAt: -1 });
+  const attendanceRows = await Attendance.find({ student: { $in: studentIds } }).sort({ date: -1 }).lean();
+  const resultRows = await Result.find({ student: { $in: studentIds } }).sort({ createdAt: -1 }).lean();
 
   const schoolIds = new Set<string>();
   const classIds = new Set<string>();
@@ -420,38 +422,153 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
     const placement = getEffectivePlacement(student as any, null, currentEnrollmentMap.get(student.id));
     if (placement?.school) schoolIds.add(placement.school);
     if (placement?.classId) classIds.add(placement.classId);
+    const legacySchoolId = (student as any).school;
+    if (legacySchoolId) schoolIds.add(legacySchoolId);
   });
 
-  resultRows.forEach((item) => {
+  attendanceRows.forEach((item: any) => {
+    if (item.schoolId) schoolIds.add(item.schoolId);
+  });
+
+  const enrollmentScopeRows = await StudentEnrollment.find({ student: { $in: studentIds } })
+    .select('school schoolBoard')
+    .lean();
+
+  const enrollmentBoardIds = new Set<string>();
+  enrollmentScopeRows.forEach((item: any) => {
+    if (item.school) {
+      schoolIds.add(item.school);
+    }
+    if (item.schoolBoard) {
+      enrollmentBoardIds.add(item.schoolBoard);
+    }
+  });
+
+  resultRows.forEach((item: any) => {
     if (item.school) schoolIds.add(item.school);
-    const guardianLinks = Array.isArray(student.guardianLinks) ? student.guardianLinks : [];
-    const linkedGuardianIds = new Set([
-      ...(Array.isArray(student.guardianIds) ? student.guardianIds : []),
-      ...guardianLinks.map((link: any) => link.guardianId),
-    ]);
     if (item.classId) classIds.add(item.classId);
-    Array.from(linkedGuardianIds).forEach((guardianId: string) => {
+    if (item.termId) termIds.add(item.termId);
     if (item.academicSessionId) sessionIds.add(item.academicSessionId);
   });
 
-  const [schools, classes, terms, sessions] = await Promise.all([
-    School.find({ _id: { $in: Array.from(schoolIds) } }).select('_id name').lean(),
-    ClassModel.find({ _id: { $in: Array.from(classIds) } }).select('_id code name').lean(),
-    Term.find({ _id: { $in: Array.from(termIds) } }).select('_id name termName').lean(),
-    AcademicSession.find({ _id: { $in: Array.from(sessionIds) } }).select('_id name startYear endYear').lean(),
+  const schools = await School.find({ _id: { $in: Array.from(schoolIds) } })
+    .select('_id name schoolBoard')
+    .lean();
+  const schoolNameMap = new Map(schools.map((item: any) => [item._id, item.name]));
+  const schoolBoardMap = new Map(schools.map((item: any) => [item._id, item.schoolBoard]));
+  const boardIds = Array.from(
+    new Set([
+      ...Array.from(enrollmentBoardIds),
+      ...schools.map((item: any) => item.schoolBoard).filter(Boolean),
+    ])
+  );
+
+  const classes = await ClassModel.find({ _id: { $in: Array.from(classIds) } }).select('_id code name').lean();
+  const classMap = new Map(classes.map((item: any) => [item._id, `${item.code} - ${item.name}`]));
+
+  const termScopeFilters: Record<string, any>[] = [];
+  const scopedSchoolIds = Array.from(schoolIds);
+  if (scopedSchoolIds.length > 0) {
+    termScopeFilters.push({ school: { $in: scopedSchoolIds } });
+  }
+  if (boardIds.length > 0) {
+    termScopeFilters.push({
+      schoolBoard: { $in: boardIds },
+      $or: [{ school: null }, { school: { $exists: false } }],
+    });
+  }
+
+  const [explicitTerms, scopedTerms, sessions] = await Promise.all([
+    termIds.size > 0
+      ? Term.find({ _id: { $in: Array.from(termIds) } })
+          .select('_id name termName academicSession school schoolBoard startDate endDate')
+          .lean()
+      : Promise.resolve([]),
+    termScopeFilters.length > 0
+      ? Term.find({ $or: termScopeFilters })
+          .select('_id name termName academicSession school schoolBoard startDate endDate')
+          .lean()
+      : Promise.resolve([]),
+    sessionIds.size > 0
+      ? AcademicSession.find({ _id: { $in: Array.from(sessionIds) } }).select('_id name startYear endYear').lean()
+      : Promise.resolve([]),
   ]);
 
-  const schoolNameMap = new Map(schools.map((item: any) => [item._id, item.name]));
-  const classMap = new Map(classes.map((item: any) => [item._id, `${item.code} - ${item.name}`]));
-  const termMap = new Map(terms.map((item: any) => [item._id, item.name || item.termName]));
+  const termById = new Map<string, any>();
+  [...explicitTerms, ...scopedTerms].forEach((item: any) => {
+    termById.set(item._id, item);
+  });
+
+  const termList = Array.from(termById.values());
+  const termNameMap = new Map(termList.map((item: any) => [item._id, item.name || item.termName]));
   const sessionMap = new Map(
     sessions.map((item: any) => [item._id, item.name || `${item.startYear}/${item.endYear}`])
   );
 
+  const sessionNameSet = new Set<string>();
+  termList.forEach((item: any) => {
+    if (item.academicSession) {
+      sessionNameSet.add(item.academicSession);
+    }
+  });
+  sessionMap.forEach((name) => {
+    if (name) {
+      sessionNameSet.add(name);
+    }
+  });
+
+  const resolveAttendanceTerm = (schoolId: string | null | undefined, dateValue: Date | string) => {
+    if (!schoolId) {
+      return null;
+    }
+
+    const schoolBoardId = schoolBoardMap.get(schoolId);
+    const recordDate = new Date(dateValue);
+
+    const candidates = termList.filter((term: any) => {
+      const startDate = new Date(term.startDate);
+      const endDate = new Date(term.endDate);
+      if (recordDate < startDate || recordDate > endDate) {
+        return false;
+      }
+
+      if (term.school) {
+        return term.school === schoolId;
+      }
+
+      return Boolean(schoolBoardId && term.schoolBoard === schoolBoardId);
+    });
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((a: any, b: any) => {
+      if (Boolean(a.school) !== Boolean(b.school)) {
+        return a.school ? -1 : 1;
+      }
+
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
+
+    return candidates[0];
+  };
+
   const attendanceByStudent = new Map<string, any[]>();
   attendanceRows.forEach((item: any) => {
+    const term = resolveAttendanceTerm(item.schoolId, item.date);
     const list = attendanceByStudent.get(item.student) || [];
-    list.push(item);
+
+    list.push({
+      id: item._id,
+      date: item.date,
+      status: item.status,
+      termId: term?._id || null,
+      termName: term ? term.name || term.termName : null,
+      academicSession: term?.academicSession || null,
+      schoolId: item.schoolId,
+    });
+
     attendanceByStudent.set(item.student, list);
   });
 
@@ -464,29 +581,35 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
 
   const studentOverview = students.map((student) => {
     const placement = getEffectivePlacement(student as any, null, currentEnrollmentMap.get(student.id));
-    const attendance = attendanceByStudent.get(student.id) || [];
-    const presentCount = attendance.filter((item) => item.status === 'present' || item.status === 'late').length;
-    const absentCount = attendance.filter((item) => item.status === 'absent' || item.status === 'excused').length;
+    const attendanceRecords = attendanceByStudent.get(student.id) || [];
+    const presentCount = attendanceRecords.filter((item) => item.status === 'present' || item.status === 'late').length;
+    const absentCount = attendanceRecords.filter((item) => item.status === 'absent' || item.status === 'excused').length;
     const totalMarked = presentCount + absentCount;
     const attendanceRate = totalMarked > 0 ? Number(((presentCount / totalMarked) * 100).toFixed(2)) : 0;
 
-    const results = (resultsByStudent.get(student.id) || []).map((item) => ({
-      id: item.id,
-      subject: item.subject,
-      testScore: item.testScore,
-      examScore: item.examScore,
-      totalScore: item.totalScore,
-      termId: item.termId,
-      termName: termMap.get(item.termId) || item.termId,
-      academicSessionId: item.academicSessionId,
-      academicSessionName: sessionMap.get(item.academicSessionId) || item.academicSessionId,
-      assessmentDate: item.assessmentDate,
-      remark: item.remark,
-      classId: item.classId,
-      className: classMap.get(item.classId) || item.classId,
-      schoolId: item.school,
-      schoolName: schoolNameMap.get(item.school) || item.school,
-    }));
+    const results = (resultsByStudent.get(student.id) || []).map((item: any) => {
+      const resolvedTerm = termById.get(item.termId);
+      const resolvedSessionName =
+        sessionMap.get(item.academicSessionId) || resolvedTerm?.academicSession || item.academicSessionId;
+
+      return {
+        id: item._id,
+        subject: item.subject,
+        testScore: item.testScore,
+        examScore: item.examScore,
+        totalScore: item.totalScore,
+        termId: item.termId,
+        termName: termNameMap.get(item.termId) || resolvedTerm?.name || resolvedTerm?.termName || item.termId,
+        academicSessionId: item.academicSessionId,
+        academicSessionName: resolvedSessionName,
+        assessmentDate: item.assessmentDate,
+        remark: item.remark,
+        classId: item.classId,
+        className: classMap.get(item.classId) || item.classId,
+        schoolId: item.school,
+        schoolName: schoolNameMap.get(item.school) || item.school,
+      };
+    });
 
     const fullName = `${student.firstName} ${student.middleName || ''} ${student.lastName}`.replace(/\s+/g, ' ').trim();
 
@@ -517,11 +640,24 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
         presentCount,
         absentCount,
         attendanceRate,
-        lastMarkedDate: attendance[0]?.date || null,
+        lastMarkedDate: attendanceRecords[0]?.date || null,
       },
+      attendanceRecords,
       results,
     };
   });
+
+  const termOptions = termList
+    .slice()
+    .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+    .map((item: any) => ({
+      id: item._id,
+      name: item.name || item.termName,
+      termName: item.termName,
+      academicSession: item.academicSession || null,
+      startDate: item.startDate,
+      endDate: item.endDate,
+    }));
 
   return {
     guardian: {
@@ -529,6 +665,8 @@ export const getMyStudentsOverview = async (actor: IUserDoc) => {
       name: actor.name,
       email: actor.email,
     },
+    termOptions,
+    academicSessionOptions: Array.from(sessionNameSet).sort((a, b) => b.localeCompare(a)),
     students: studentOverview,
   };
 };

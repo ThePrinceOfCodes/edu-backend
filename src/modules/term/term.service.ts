@@ -3,6 +3,8 @@ import { ApiError } from '../errors';
 import { IUserDoc } from '../users/user.interfaces';
 import { School } from '../school';
 import { SchoolBoard } from '../school-board';
+import Student from '../student/student.model';
+import StudentEnrollment from '../student/studentEnrollment.model';
 import Term from './term.model';
 import { ITerm } from './term.interfaces';
 
@@ -52,7 +54,7 @@ const buildScopedTermFilter = (schoolBoardId: string, schoolId: string | null) =
   return buildBoardWideTermFilter(schoolBoardId);
 };
 
-const buildTermAccessFilter = (actor: IUserDoc) => {
+const buildTermAccessFilter = async (actor: IUserDoc) => {
   if (actor.accountType === 'internal') {
     return {};
   }
@@ -74,6 +76,72 @@ const buildTermAccessFilter = (actor: IUserDoc) => {
     return {
       $or: [{ school: schoolId }, ...buildBoardWideSchoolClauses()],
     };
+  }
+
+  if (actor.role === 'guardian') {
+    const guardianId = actor.id;
+    const linkedStudents = await Student.find({
+      $or: [{ guardianIds: guardianId }, { 'guardianLinks.guardianId': guardianId }],
+    })
+      .select('_id school')
+      .lean();
+
+    if (linkedStudents.length === 0) {
+      return { _id: { $in: [] } };
+    }
+
+    const studentIds = linkedStudents.map((item: any) => item._id);
+    const schoolIds = new Set<string>();
+    const boardIds = new Set<string>();
+
+    linkedStudents.forEach((student: any) => {
+      if (student.school) {
+        schoolIds.add(student.school);
+      }
+    });
+
+    const enrollments = await StudentEnrollment.find({ student: { $in: studentIds } })
+      .select('school schoolBoard')
+      .lean();
+
+    enrollments.forEach((enrollment: any) => {
+      if (enrollment.school) {
+        schoolIds.add(enrollment.school);
+      }
+      if (enrollment.schoolBoard) {
+        boardIds.add(enrollment.schoolBoard);
+      }
+    });
+
+    if (schoolIds.size > 0) {
+      const schools = await School.find({ _id: { $in: Array.from(schoolIds) } })
+        .select('_id schoolBoard')
+        .lean();
+      schools.forEach((school: any) => {
+        if (school.schoolBoard) {
+          boardIds.add(school.schoolBoard);
+        }
+      });
+    }
+
+    const scopeClauses: Record<string, any>[] = [];
+
+    if (schoolIds.size > 0) {
+      scopeClauses.push({ school: { $in: Array.from(schoolIds) } });
+    }
+
+    if (boardIds.size > 0) {
+      scopeClauses.push({
+        schoolBoard: { $in: Array.from(boardIds) },
+        $or: buildBoardWideSchoolClauses(),
+      });
+    }
+
+    if (scopeClauses.length === 0) {
+      return { _id: { $in: [] } };
+    }
+
+    return { $or: scopeClauses };
   }
 
   throw new ApiError(httpStatus.FORBIDDEN, 'You are not allowed to access terms');
@@ -357,12 +425,12 @@ export const createTerm = async (payload: CreateTermPayload, actor: IUserDoc) =>
 };
 
 export const queryTerms = async (filter: any, options: any, actor: IUserDoc) => {
-  const accessFilter = buildTermAccessFilter(actor);
+  const accessFilter = await buildTermAccessFilter(actor);
   return Term.paginate({ ...filter, ...accessFilter }, options);
 };
 
 export const getTermById = async (termId: string, actor: IUserDoc) => {
-  const accessFilter = buildTermAccessFilter(actor);
+  const accessFilter = await buildTermAccessFilter(actor);
   const found = await Term.findOne({ _id: termId, ...accessFilter });
 
   if (!found) {

@@ -118,7 +118,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'messages.write',
     'events.read',
   ],
-  guardian: ['students.read', 'attendance.read', 'results.read', 'guardians.read'],
+  guardian: ['students.read', 'attendance.read', 'results.read', 'guardians.read', 'terms.read'],
 };
 
 export const getPermissionsForRole = (role?: UserRole | null) => {

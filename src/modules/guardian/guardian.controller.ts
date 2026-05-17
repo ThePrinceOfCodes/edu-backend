@@ -20,6 +20,9 @@ export const linkStudentsToGuardian = catchAsync(async (req: Request, res: Respo
     {
       guardianId: req.params['guardianId'] as string,
       studentIds: req.body.studentIds,
+      relationshipType: req.body.relationshipType || 'parent',
+      parentType: req.body.parentType || null,
+      isPrimary: req.body.isPrimary || false,
     },
     req.account
   );
@@ -32,6 +35,7 @@ export const unlinkStudentsFromGuardian = catchAsync(async (req: Request, res: R
     {
       guardianId: req.params['guardianId'] as string,
       studentIds: req.body.studentIds,
+      relationshipType: 'caretaker',
     },
     req.account
   );

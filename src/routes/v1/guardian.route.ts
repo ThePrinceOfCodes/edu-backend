@@ -37,6 +37,6 @@ router.post(
   guardianController.unlinkStudentsFromGuardian
 );
 
-router.get('/me/students-overview', authenticate, authorize('guardians.read'), guardianController.getMyStudentsOverview);
+router.get('/me/students-overview', authenticate, guardianController.getMyStudentsOverview);
 
 export default router;

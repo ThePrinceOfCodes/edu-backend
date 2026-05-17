@@ -3,3 +3,8 @@ node_modules
 attendance_extraction_images/*
 *vue-http-demo-626ef-9c28d53c76c2.json
 *.json.service-account
+/dist
+dist
+./dist
+/build
+build

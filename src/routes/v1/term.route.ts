@@ -9,7 +9,6 @@ const router = express.Router();
 router.get(
   '/active',
   authenticate,
-  authorize('terms.read'),
   validate(termValidation.getActiveTerm),
   termController.getActiveTerm
 );
@@ -17,7 +16,6 @@ router.get(
 router.get(
   '/by-date-range',
   authenticate,
-  authorize('terms.read'),
   validate(termValidation.getTermByDateRange),
   termController.getTermByDateRange
 );
@@ -25,11 +23,11 @@ router.get(
 router
   .route('/')
   .post(authenticate, authorize('terms.write'), validate(termValidation.createTerm), termController.createTerm)
-  .get(authenticate, authorize('terms.read'), validate(termValidation.getTerms), termController.getTerms);
+  .get(authenticate, validate(termValidation.getTerms), termController.getTerms);
 
 router
   .route('/:termId')
-  .get(authenticate, authorize('terms.read'), validate(termValidation.getTerm), termController.getTerm)
+  .get(authenticate, validate(termValidation.getTerm), termController.getTerm)
   .patch(authenticate, authorize('terms.write'), validate(termValidation.updateTerm), termController.updateTerm)
   .delete(authenticate, authorize('terms.write'), validate(termValidation.deleteTerm), termController.deleteTerm);
 
