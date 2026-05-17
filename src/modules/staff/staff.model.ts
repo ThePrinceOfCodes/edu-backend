@@ -41,6 +41,25 @@ const staffSchema = new mongoose.Schema<IStaffDoc, IStaffModel>(
       trim: true,
       default: null,
     },
+    gender: {
+      type: String,
+      enum: ['M', 'F'],
+      default: null,
+    },
+    academicQualification: {
+      type: String,
+      enum: ['NCE', 'B.Ed', 'B.Sc', 'HND', 'PGDE', 'SSCE'],
+      default: null,
+    },
+    trcnRegistered: {
+      type: Boolean,
+      default: null,
+    },
+    salarySource: {
+      type: String,
+      enum: ['1-FTS', '2-SUBEB', '3-Private'],
+      default: null,
+    },
     employmentType: {
       type: String,
       enum: ['teacher', 'staff'],

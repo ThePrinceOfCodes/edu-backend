@@ -166,6 +166,11 @@ export const createStaff = async (staffBody: CreateStaffPayload, actor: IUserDoc
     employeeId: staffBody.employeeId,
     designation: staffBody.designation,
     avatar: staffBody.avatar || null,
+    gender: staffBody.gender || null,
+    academicQualification: staffBody.academicQualification || null,
+    trcnRegistered:
+      typeof staffBody.trcnRegistered === 'boolean' ? staffBody.trcnRegistered : null,
+    salarySource: staffBody.salarySource || null,
     employmentType: staffBody.employmentType || 'staff',
     isActive: staffBody.isActive,
   });

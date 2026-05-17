@@ -7,6 +7,10 @@ export interface IStaff {
   employeeId?: string;
   designation?: string;
   avatar?: string | null;
+  gender?: 'M' | 'F' | null;
+  academicQualification?: 'NCE' | 'B.Ed' | 'B.Sc' | 'HND' | 'PGDE' | 'SSCE' | null;
+  trcnRegistered?: boolean | null;
+  salarySource?: '1-FTS' | '2-SUBEB' | '3-Private' | null;
   employmentType?: 'teacher' | 'staff';
   isActive?: boolean;
 }
