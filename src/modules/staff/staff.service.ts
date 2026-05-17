@@ -165,6 +165,7 @@ export const createStaff = async (staffBody: CreateStaffPayload, actor: IUserDoc
     school: scope.school,
     employeeId: staffBody.employeeId,
     designation: staffBody.designation,
+    avatar: staffBody.avatar || null,
     employmentType: staffBody.employmentType || 'staff',
     isActive: staffBody.isActive,
   });

@@ -245,6 +245,7 @@ const createStudentInternal = async (studentBody: CreateStudentPayload, actor: I
     firstName: studentBody.firstName,
     middleName: studentBody.middleName || null,
     lastName: studentBody.lastName,
+    avatar: studentBody.avatar || null,
     regNumber,
     stateOfOrigin: studentBody.stateOfOrigin,
     localGovernment: studentBody.localGovernment,

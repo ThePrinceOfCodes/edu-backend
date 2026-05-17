@@ -4,6 +4,7 @@ export interface IStudent {
   firstName: string;
   middleName?: string | null;
   lastName: string;
+  avatar?: string | null;
   regNumber: string;
   stateOfOrigin: string;
   localGovernment: string;

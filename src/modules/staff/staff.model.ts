@@ -36,6 +36,11 @@ const staffSchema = new mongoose.Schema<IStaffDoc, IStaffModel>(
       trim: true,
       default: null,
     },
+    avatar: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     employmentType: {
       type: String,
       enum: ['teacher', 'staff'],

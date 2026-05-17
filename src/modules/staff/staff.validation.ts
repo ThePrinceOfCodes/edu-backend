@@ -26,6 +26,7 @@ export const createStaff = {
       .optional(),
     employeeId: Joi.string().trim().optional().allow(null, ''),
     designation: Joi.string().trim().optional().allow(null, ''),
+    avatar: Joi.string().uri().trim().optional().allow(null, ''),
     employmentType: Joi.string().valid('teacher', 'staff').optional(),
     isActive: Joi.boolean().optional(),
   }),
@@ -59,6 +60,7 @@ export const updateStaff = {
       school: Joi.string().trim().allow(null, ''),
       employeeId: Joi.string().trim().allow(null, ''),
       designation: Joi.string().trim().allow(null, ''),
+      avatar: Joi.string().uri().trim().allow(null, ''),
       employmentType: Joi.string().valid('teacher', 'staff'),
       isActive: Joi.boolean(),
     })

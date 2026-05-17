@@ -25,6 +25,11 @@ const studentSchema = new mongoose.Schema<IStudentDoc, IStudentModel>(
       required: true,
       trim: true,
     },
+    avatar: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     regNumber: {
       type: String,
       required: true,

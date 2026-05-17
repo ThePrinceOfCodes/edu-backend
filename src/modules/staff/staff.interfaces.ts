@@ -6,6 +6,7 @@ export interface IStaff {
   school?: string | null;
   employeeId?: string;
   designation?: string;
+  avatar?: string | null;
   employmentType?: 'teacher' | 'staff';
   isActive?: boolean;
 }
